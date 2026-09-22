@@ -1,0 +1,68 @@
+<script setup lang="ts">
+import { Handle, Position } from '@vue-flow/core'
+import type { WorkflowCanvasNodeData } from '../types'
+
+defineProps<{
+  data: WorkflowCanvasNodeData
+  selected: boolean
+}>()
+</script>
+
+<template>
+  <article
+    class="w-64 rounded-xl border border-l-2 border-slate-200 bg-white px-3.5 py-3 text-left shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition-[border-color,box-shadow,transform] duration-150 ease-out"
+    :class="[
+      data.accentClass,
+      selected
+        ? 'border-slate-300 shadow-[0_8px_24px_rgb(15_23_42/0.10)]'
+        : 'hover:border-slate-300 hover:shadow-[0_4px_14px_rgb(15_23_42/0.07)]',
+    ]"
+    :aria-label="`${data.title}. ${data.description}`"
+  >
+    <Handle
+      v-if="data.hasParent"
+      type="target"
+      :position="Position.Top"
+      :connectable="false"
+      class="!size-2 !border-2 !border-white !bg-slate-300"
+    />
+
+    <div class="flex items-start gap-3">
+      <span
+        class="grid size-7 shrink-0 place-items-center rounded-lg text-sm font-semibold"
+        :class="data.iconClass"
+        aria-hidden="true"
+      >
+        {{ data.icon }}
+      </span>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <h2 class="truncate text-[13px] font-semibold leading-5 text-slate-900">
+            {{ data.title }}
+          </h2>
+          <span
+            v-if="!data.editable"
+            class="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-500"
+          >
+            View only
+          </span>
+        </div>
+        <p
+          class="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500"
+          :title="data.description"
+        >
+          {{ data.description }}
+        </p>
+      </div>
+    </div>
+
+    <Handle
+      v-if="data.hasChildren"
+      type="source"
+      :position="Position.Bottom"
+      :connectable="false"
+      class="!size-2 !border-2 !border-white !bg-slate-300"
+    />
+  </article>
+</template>
