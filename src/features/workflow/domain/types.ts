@@ -101,3 +101,17 @@ export type WorkflowGraphErrorCode =
   | 'cyclic-relationship'
 
 export type WorkflowGraphError = DomainError<WorkflowGraphErrorCode>
+
+export interface UpdateWorkflowNodeInput {
+  id: string
+  title: string
+  description: string
+}
+
+export type WorkflowMutationErrorCode =
+  | 'node-not-found'
+  | 'node-read-only'
+  | 'title-required'
+  | 'description-required'
+
+export type WorkflowMutationError = DomainError<WorkflowMutationErrorCode>

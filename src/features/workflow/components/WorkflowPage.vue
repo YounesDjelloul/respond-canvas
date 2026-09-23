@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { useWorkflowCanvas } from '../composables/use-workflow-canvas'
+import { provideWorkflowEditor } from '../composables/workflow-editor-context'
+import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
 
-const { nodes, edges, errorMessage, isEmpty, isLoading } = useWorkflowCanvas()
+const {
+  status: { errorMessage, isEmpty, isLoading },
+} = provideWorkflowEditor()
 </script>
 
 <template>
@@ -65,6 +68,8 @@ const { nodes, edges, errorMessage, isEmpty, isLoading } = useWorkflowCanvas()
       </div>
     </section>
 
-    <WorkflowCanvas v-else :nodes="nodes" :edges="edges" />
+    <WorkflowCanvas v-else />
+
+    <NodeDetailsDrawer />
   </main>
 </template>

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { Background } from '@vue-flow/background'
 import { VueFlow } from '@vue-flow/core'
-import type { WorkflowCanvasEdge, WorkflowCanvasNode } from '../types'
+import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 import WorkflowNodeCard from './WorkflowNodeCard.vue'
 
-defineProps<{
-  nodes: WorkflowCanvasNode[]
-  edges: WorkflowCanvasEdge[]
-}>()
+const {
+  canvas: { nodes, edges, openNode },
+} = useWorkflowEditorContext()
 </script>
 
 <template>
@@ -24,11 +23,15 @@ defineProps<{
       :edges-focusable="false"
       fit-view-on-init
       class="h-full"
+      @node-click="openNode($event.node.id)"
     >
       <Background :gap="20" :size="1" color="#d9dde5" />
 
       <template #node-workflow="nodeProps">
-        <WorkflowNodeCard v-bind="nodeProps" />
+        <WorkflowNodeCard
+          v-bind="nodeProps"
+          @keyboard-open="openNode"
+        />
       </template>
     </VueFlow>
 

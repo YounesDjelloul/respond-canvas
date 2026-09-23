@@ -3,8 +3,13 @@ import { Handle, Position } from '@vue-flow/core'
 import type { WorkflowCanvasNodeData } from '../types'
 
 defineProps<{
+  id: string
   data: WorkflowCanvasNodeData
   selected: boolean
+}>()
+
+defineEmits<{
+  'keyboard-open': [nodeId: string]
 }>()
 </script>
 
@@ -13,11 +18,17 @@ defineProps<{
     class="w-64 rounded-xl border border-l-2 border-slate-200 bg-white px-3.5 py-3 text-left shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition-[border-color,box-shadow,transform] duration-150 ease-out"
     :class="[
       data.accentClass,
+      data.editable ? 'cursor-pointer' : 'cursor-default',
       selected
         ? 'border-slate-300 shadow-[0_8px_24px_rgb(15_23_42/0.10)]'
         : 'hover:border-slate-300 hover:shadow-[0_4px_14px_rgb(15_23_42/0.07)]',
     ]"
+    :role="data.editable ? 'button' : 'group'"
+    :tabindex="data.editable ? 0 : -1"
+    :data-workflow-node-id="id"
     :aria-label="`${data.title}. ${data.description}`"
+    @keydown.enter.prevent="data.editable && $emit('keyboard-open', id)"
+    @keydown.space.prevent="data.editable && $emit('keyboard-open', id)"
   >
     <Handle
       v-if="data.hasParent"

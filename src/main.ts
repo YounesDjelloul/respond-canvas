@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { VueQueryPlugin } from '@tanstack/vue-query'
+import Aura from '@primeuix/themes/aura'
+import PrimeVue from 'primevue/config'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import './style.css'
@@ -22,5 +24,13 @@ window.addEventListener('unhandledrejection', (event) => {
 app.use(createPinia())
 app.use(router)
 app.use(VueQueryPlugin, { queryClient })
+app.use(PrimeVue, {
+  theme: {
+    preset: Aura,
+    options: {
+      darkModeSelector: false,
+    },
+  },
+})
 
 app.mount('#app')

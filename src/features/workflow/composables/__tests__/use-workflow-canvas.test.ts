@@ -2,8 +2,9 @@ import { defineComponent, h } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { render, waitFor } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import type { WorkflowRepository } from '../../data/types'
-import { useWorkflowCanvas } from '../use-workflow-canvas'
+import { useWorkflowEditor } from '../use-workflow-editor'
 
 const validPayload = [
   {
@@ -26,23 +27,23 @@ const validPayload = [
   },
 ]
 
-describe('useWorkflowCanvas', () => {
+describe('useWorkflowEditor', () => {
   it('loads and presents a draggable canvas view model', async () => {
     const repository: WorkflowRepository = {
       getWorkflow: async () => validPayload,
     }
-    const { model } = renderComposable(repository)
+    const { model } = await renderComposable(repository)
 
     await waitFor(() => {
-      expect(model.isLoading.value).toBe(false)
+      expect(model.status.isLoading.value).toBe(false)
     })
 
-    expect(model.errorMessage.value).toBeNull()
-    expect(model.nodes.value).toEqual([
+    expect(model.status.errorMessage.value).toBeNull()
+    expect(model.canvas.nodes.value).toEqual([
       expect.objectContaining({
         id: '1',
         draggable: true,
-        focusable: true,
+        focusable: false,
         data: expect.objectContaining({
           title: 'Conversation opened',
           hasParent: false,
@@ -58,7 +59,7 @@ describe('useWorkflowCanvas', () => {
         }),
       }),
     ])
-    expect(model.edges.value).toEqual([
+    expect(model.canvas.edges.value).toEqual([
       expect.objectContaining({
         source: '1',
         target: 'message',
@@ -73,19 +74,112 @@ describe('useWorkflowCanvas', () => {
         throw new Error('Workflow service is unavailable')
       },
     }
-    const { model } = renderComposable(repository)
+    const { model } = await renderComposable(repository)
 
     await waitFor(() => {
-      expect(model.errorMessage.value).toBe('Workflow service is unavailable')
+      expect(model.status.errorMessage.value).toBe('Workflow service is unavailable')
     })
 
-    expect(model.nodes.value).toEqual([])
-    expect(model.isEmpty.value).toBe(false)
+    expect(model.canvas.nodes.value).toEqual([])
+    expect(model.status.isEmpty.value).toBe(false)
+  })
+
+  it('opens editable nodes through the public navigation action', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model, router } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(2)
+    })
+
+    model.canvas.openNode('message')
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.fullPath).toBe('/nodes/message')
+    })
+  })
+
+  it('keeps display-only branch nodes inaccessible', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => [
+        ...validPayload,
+        {
+          id: 'success',
+          parentId: 1,
+          type: 'dateTimeConnector',
+          name: 'Success',
+          data: {
+            connectorType: 'success',
+          },
+        },
+      ],
+    }
+    const { model, router } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(3)
+    })
+
+    model.canvas.openNode('success')
+    expect(router.currentRoute.value.fullPath).toBe('/')
+
+    await router.push('/nodes/success')
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.fullPath).toBe('/')
+    })
+  })
+
+  it('updates node details in memory through a mutation', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    model.details.updateTitle('Updated welcome')
+    model.details.updateDescription('Updated description')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.isSaving.value).toBe(false)
+      expect(
+        model.canvas.nodes.value.find((node) => node.id === 'message')?.data,
+      ).toMatchObject({
+        title: 'Updated welcome',
+        description: 'Updated description',
+      })
+    })
+  })
+
+  it('deletes the selected node and closes its route', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    model.details.requestDelete()
+    expect(model.details.isDeleteConfirming.value).toBe(true)
+    model.details.confirmDelete()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.map((node) => node.id)).toEqual(['1'])
+      expect(router.currentRoute.value.fullPath).toBe('/')
+    })
   })
 })
 
-function renderComposable(repository: WorkflowRepository) {
-  let model!: ReturnType<typeof useWorkflowCanvas>
+async function renderComposable(repository: WorkflowRepository, initialPath = '/') {
+  let model!: ReturnType<typeof useWorkflowEditor>
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -93,18 +187,32 @@ function renderComposable(repository: WorkflowRepository) {
       },
     },
   })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'workflow', component: { render: () => h('div') } },
+      {
+        path: '/nodes/:nodeId',
+        name: 'workflow-node',
+        component: { render: () => h('div') },
+      },
+    ],
+  })
   const TestHarness = defineComponent({
     setup() {
-      model = useWorkflowCanvas(repository)
+      model = useWorkflowEditor(repository)
       return () => h('div')
     },
   })
 
+  await router.push(initialPath)
+  await router.isReady()
+
   render(TestHarness, {
     global: {
-      plugins: [[VueQueryPlugin, { queryClient }]],
+      plugins: [router, [VueQueryPlugin, { queryClient }]],
     },
   })
 
-  return { model }
+  return { model, router }
 }
