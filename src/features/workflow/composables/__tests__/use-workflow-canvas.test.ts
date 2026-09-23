@@ -27,6 +27,31 @@ const validPayload = [
   },
 ]
 
+const typeSpecificPayload = [
+  ...validPayload,
+  {
+    id: 'comment',
+    parentId: 'message',
+    type: 'addComment',
+    name: 'Internal note',
+    data: {
+      comment: 'Follow up',
+    },
+  },
+  {
+    id: 'hours',
+    parentId: 1,
+    type: 'dateTime',
+    name: 'Business Hours',
+    data: {
+      times: [{ day: 'mon', startTime: '09:00', endTime: '17:00' }],
+      connectors: [],
+      timezone: 'UTC',
+      action: 'businessHours',
+    },
+  },
+]
+
 describe('useWorkflowEditor', () => {
   it('loads and presents a draggable canvas view model', async () => {
     const repository: WorkflowRepository = {
@@ -144,6 +169,7 @@ describe('useWorkflowEditor', () => {
 
     model.details.updateTitle('Updated welcome')
     model.details.updateDescription('Updated description')
+    model.details.sendMessage.updateText(0, 'Updated body')
     model.details.save()
 
     await waitFor(() => {
@@ -153,6 +179,11 @@ describe('useWorkflowEditor', () => {
       ).toMatchObject({
         title: 'Updated welcome',
         description: 'Updated description',
+      })
+      expect(model.details.selectedNode.value).toMatchObject({
+        config: {
+          parts: [{ type: 'text', value: 'Updated body' }],
+        },
       })
     })
   })
@@ -174,6 +205,55 @@ describe('useWorkflowEditor', () => {
     await waitFor(() => {
       expect(model.canvas.nodes.value.map((node) => node.id)).toEqual(['1'])
       expect(router.currentRoute.value.fullPath).toBe('/')
+    })
+  })
+
+  it('edits comment and business-hour content through focused detail APIs', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/comment')
+
+    await waitFor(() => {
+      expect(model.details.addComment.value.value).toBe('Follow up')
+    })
+
+    model.details.addComment.clear()
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value).toMatchObject({
+        config: {
+          comment: '',
+        },
+      })
+    })
+
+    await router.push('/nodes/hours')
+    await waitFor(() => {
+      expect(model.details.businessHours.isVisible.value).toBe(true)
+    })
+
+    model.details.businessHours.updateHour(0, 'startTime', '18:00')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.contentErrorMessages.value).toContain(
+        'Opening time must be before closing time',
+      )
+    })
+
+    model.details.businessHours.updateHour(0, 'startTime', '08:00')
+    model.details.businessHours.updateTimezone('Asia/Singapore')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value).toMatchObject({
+        config: {
+          hours: [{ day: 'mon', startTime: '08:00', endTime: '17:00' }],
+          timezone: 'Asia/Singapore',
+        },
+      })
     })
   })
 })

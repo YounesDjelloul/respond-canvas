@@ -9,6 +9,7 @@ export type {
   TriggerWorkflowNode,
   UpdateWorkflowNodeInput,
   WorkflowEdge,
+  WorkflowAttachmentPart,
   WorkflowGraph,
   WorkflowGraphError,
   WorkflowGraphErrorCode,
@@ -19,4 +20,5 @@ export type {
   WorkflowNodeAccent,
   WorkflowNodeKind,
   WorkflowPosition,
+  WorkflowTextPart,
 } from './types'

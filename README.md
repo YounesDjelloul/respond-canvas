@@ -39,6 +39,8 @@ Workflow mutations intentionally remain in memory. Refreshing the page restores 
 
 Editable nodes open through route-addressable details drawers. Title and description updates replace the cached graph immutably. Deleting a node also deletes its descendants after an explicit confirmation. Display-only Success and Failure nodes cannot open the drawer.
 
+Type-specific editors support ordered Send Message text and attachments, internal comments, and weekly Business Hours with timezone-aware schedules. Uploaded files are validated to 5 MB, represented as in-memory data URLs, and discarded on refresh with the rest of the editing session.
+
 ## Accessibility and motion
 
 Interactive elements use semantic labels and visible focus indicators. Workflow nodes are keyboard-focusable from the first iteration. Motion uses short transitions and respects `prefers-reduced-motion`.

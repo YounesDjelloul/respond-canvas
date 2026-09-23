@@ -16,3 +16,11 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
 
 export type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
 export type WorkflowCanvasEdge = Edge
+
+export interface WorkflowMessageDraftItem {
+  index: number
+  type: 'text' | 'attachment'
+  value: string
+  name: string
+  isImage: boolean
+}

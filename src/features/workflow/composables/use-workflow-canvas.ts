@@ -10,15 +10,38 @@ import {
   updateWorkflowNode,
 } from '../domain'
 import type {
+  BusinessHour,
   UpdateWorkflowNodeInput,
+  WorkflowAttachmentPart,
   WorkflowGraph,
+  WorkflowMessagePart,
   WorkflowMutationError,
+  WorkflowNode,
   WorkflowNodeAccent,
   WorkflowNodeKind,
 } from '../domain'
-import type { WorkflowCanvasEdge, WorkflowCanvasNode } from '../types'
+import type {
+  WorkflowCanvasEdge,
+  WorkflowCanvasNode,
+  WorkflowMessageDraftItem,
+} from '../types'
 
 const workflowQueryKey = ['workflow'] as const
+const maximumAttachmentSize = 5 * 1024 * 1024
+const commonTimezones = [
+  'UTC',
+  'America/Los_Angeles',
+  'America/New_York',
+  'Europe/London',
+  'Europe/Paris',
+  'Africa/Lagos',
+  'Africa/Johannesburg',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+]
 
 export function useWorkflowEditor(repository: WorkflowRepository = workflowRepository) {
   const route = useRoute()
@@ -26,6 +49,11 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
   const queryClient = useQueryClient()
   const title = ref('')
   const description = ref('')
+  const messageParts = ref<WorkflowMessagePart[]>([])
+  const comment = ref('')
+  const businessHours = ref<BusinessHour[]>([])
+  const timezone = ref('')
+  const attachmentError = ref<string | null>(null)
   const operationErrors = ref<readonly WorkflowMutationError[]>([])
   const isDeleteConfirming = ref(false)
   const lastFocusedNodeId = ref<string | null>(null)
@@ -144,11 +172,33 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
     () =>
       operationErrors.value.find((error) => error.path?.[0] === 'description')?.message ?? null,
   )
+  const contentErrorMessages = computed(() =>
+    operationErrors.value
+      .filter((error) => error.path?.[0] === 'config')
+      .map((error) => error.message),
+  )
+  const messageItems = computed<WorkflowMessageDraftItem[]>(() =>
+    messageParts.value.map((part, index) => ({
+      index,
+      type: part.type,
+      value: part.value,
+      name: part.type === 'attachment' ? part.name ?? attachmentName(part.value) : '',
+      isImage:
+        part.type === 'attachment' &&
+        (part.mimeType?.startsWith('image/') === true || isImageUrl(part.value)),
+    })),
+  )
   const isDirty = computed(
     () =>
       selectedNode.value !== null &&
       (title.value !== selectedNode.value.title ||
-        description.value !== selectedNode.value.description),
+        description.value !== selectedNode.value.description ||
+        hasContentChanges(selectedNode.value, {
+          messageParts: messageParts.value,
+          comment: comment.value,
+          businessHours: businessHours.value,
+          timezone: timezone.value,
+        })),
   )
   const isEmpty = computed(
     () => !workflowQuery.isPending.value && !errorMessage.value && nodes.value.length === 0,
@@ -157,13 +207,25 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
   const detailsTypeLabel = computed(() =>
     selectedNode.value ? labelFor(selectedNode.value.kind) : '',
   )
+  const timezoneOptions = computed(() =>
+    Array.from(new Set([timezone.value, ...commonTimezones])).filter(Boolean),
+  )
 
   watch(
     selectedNode,
     (node) => {
       title.value = node?.title ?? ''
       description.value = node?.description ?? ''
+      messageParts.value =
+        node?.kind === 'send-message' ? node.config.parts.map((part) => ({ ...part })) : []
+      comment.value = node?.kind === 'add-comment' ? node.config.comment : ''
+      businessHours.value =
+        node?.kind === 'business-hours'
+          ? node.config.hours.map((hours) => ({ ...hours }))
+          : []
+      timezone.value = node?.kind === 'business-hours' ? node.config.timezone : ''
       operationErrors.value = []
+      attachmentError.value = null
       isDeleteConfirming.value = false
     },
     { immediate: true },
@@ -215,17 +277,98 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
     clearFieldError('description')
   }
 
+  function addMessageText() {
+    messageParts.value = [...messageParts.value, { type: 'text', value: '' }]
+    clearContentErrors()
+  }
+
+  function updateMessageText(index: number, value: string) {
+    messageParts.value = messageParts.value.map((part, partIndex) =>
+      partIndex === index && part.type === 'text' ? { ...part, value } : part,
+    )
+    clearContentErrors()
+  }
+
+  function removeMessagePart(index: number) {
+    messageParts.value = messageParts.value.filter((_, partIndex) => partIndex !== index)
+    clearContentErrors()
+  }
+
+  async function addAttachments(files: FileList | null) {
+    if (!files?.length) {
+      return
+    }
+
+    attachmentError.value = null
+    const acceptedFiles = Array.from(files).filter((file) => {
+      if (file.size <= maximumAttachmentSize) {
+        return true
+      }
+
+      attachmentError.value = `${file.name} exceeds the 5 MB limit`
+      return false
+    })
+
+    try {
+      const attachments = await Promise.all(
+        acceptedFiles.map(async (file): Promise<WorkflowAttachmentPart> => ({
+          type: 'attachment',
+          value: await readFileAsDataUrl(file),
+          name: file.name,
+          mimeType: file.type,
+        })),
+      )
+
+      messageParts.value = [...messageParts.value, ...attachments]
+      clearContentErrors()
+    } catch (error) {
+      attachmentError.value =
+        error instanceof Error ? error.message : 'The attachment could not be read'
+    }
+  }
+
+  function updateComment(value: string) {
+    comment.value = value
+    clearContentErrors()
+  }
+
+  function clearComment() {
+    comment.value = ''
+    clearContentErrors()
+  }
+
+  function updateBusinessHour(
+    index: number,
+    field: 'startTime' | 'endTime',
+    value: string,
+  ) {
+    businessHours.value = businessHours.value.map((hours, hoursIndex) =>
+      hoursIndex === index ? { ...hours, [field]: value } : hours,
+    )
+    clearContentErrors()
+  }
+
+  function updateTimezone(value: string) {
+    timezone.value = value
+    clearContentErrors()
+  }
+
   function saveNode() {
     if (!selectedNode.value) {
       return
     }
 
     operationErrors.value = []
-    updateMutation.mutate({
-      id: selectedNode.value.id,
-      title: title.value,
-      description: description.value,
-    })
+    updateMutation.mutate(
+      createUpdateInput(selectedNode.value, {
+        title: title.value,
+        description: description.value,
+        messageParts: messageParts.value,
+        comment: comment.value,
+        businessHours: businessHours.value,
+        timezone: timezone.value,
+      }),
+    )
   }
 
   function requestDelete() {
@@ -270,6 +413,10 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
     operationErrors.value = operationErrors.value.filter((error) => error.path?.[0] !== field)
   }
 
+  function clearContentErrors() {
+    operationErrors.value = operationErrors.value.filter((error) => error.path?.[0] !== 'config')
+  }
+
   return {
     status: {
       errorMessage,
@@ -291,6 +438,7 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
       titleError,
       descriptionError,
       errorMessage: detailsErrorMessage,
+      contentErrorMessages,
       isDirty,
       isSaving: updateMutation.isPending,
       isDeleting: deleteMutation.isPending,
@@ -299,6 +447,29 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
       setVisibility: setDetailsVisibility,
       updateTitle,
       updateDescription,
+      sendMessage: {
+        isVisible: computed(() => selectedNode.value?.kind === 'send-message'),
+        items: messageItems,
+        attachmentError,
+        addText: addMessageText,
+        updateText: updateMessageText,
+        removePart: removeMessagePart,
+        addAttachments,
+      },
+      addComment: {
+        isVisible: computed(() => selectedNode.value?.kind === 'add-comment'),
+        value: comment,
+        update: updateComment,
+        clear: clearComment,
+      },
+      businessHours: {
+        isVisible: computed(() => selectedNode.value?.kind === 'business-hours'),
+        hours: businessHours,
+        timezone,
+        timezoneOptions,
+        updateHour: updateBusinessHour,
+        updateTimezone,
+      },
       save: saveNode,
       requestDelete,
       cancelDelete,
@@ -308,6 +479,104 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
 }
 
 export type WorkflowEditorController = ReturnType<typeof useWorkflowEditor>
+
+interface NodeDraft {
+  title: string
+  description: string
+  messageParts: WorkflowMessagePart[]
+  comment: string
+  businessHours: BusinessHour[]
+  timezone: string
+}
+
+function createUpdateInput(node: WorkflowNode, draft: NodeDraft): UpdateWorkflowNodeInput {
+  const base = {
+    id: node.id,
+    title: draft.title,
+    description: draft.description,
+  }
+
+  if (node.kind === 'send-message') {
+    return {
+      ...base,
+      kind: 'send-message',
+      parts: draft.messageParts,
+    }
+  }
+
+  if (node.kind === 'business-hours') {
+    return {
+      ...base,
+      kind: 'business-hours',
+      hours: draft.businessHours,
+      timezone: draft.timezone,
+    }
+  }
+
+  if (node.kind === 'add-comment') {
+    return {
+      ...base,
+      kind: 'add-comment',
+      comment: draft.comment,
+    }
+  }
+
+  if (node.kind === 'trigger') {
+    return {
+      ...base,
+      kind: 'trigger',
+    }
+  }
+
+  throw new Error('Display-only nodes cannot be edited')
+}
+
+function hasContentChanges(
+  node: WorkflowNode,
+  draft: Omit<NodeDraft, 'title' | 'description'>,
+): boolean {
+  if (node.kind === 'send-message') {
+    return JSON.stringify(node.config.parts) !== JSON.stringify(draft.messageParts)
+  }
+
+  if (node.kind === 'add-comment') {
+    return node.config.comment !== draft.comment
+  }
+
+  if (node.kind === 'business-hours') {
+    return (
+      JSON.stringify(node.config.hours) !== JSON.stringify(draft.businessHours) ||
+      node.config.timezone !== draft.timezone
+    )
+  }
+
+  return false
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.addEventListener('load', () => resolve(String(reader.result)))
+    reader.addEventListener('error', () => reject(new Error(`${file.name} could not be read`)))
+    reader.readAsDataURL(file)
+  })
+}
+
+function isImageUrl(value: string): boolean {
+  return (
+    value.startsWith('data:image/') ||
+    /\.(avif|gif|jpe?g|png|webp)(?:\?.*)?$/i.test(value)
+  )
+}
+
+function attachmentName(value: string): string {
+  try {
+    const pathname = new URL(value).pathname
+    return pathname.split('/').filter(Boolean).at(-1) ?? 'Attachment'
+  } catch {
+    return 'Attachment'
+  }
+}
 
 function requireGraph(graph: WorkflowGraph | null): WorkflowGraph {
   if (!graph) {

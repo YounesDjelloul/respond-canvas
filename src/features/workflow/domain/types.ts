@@ -14,10 +14,19 @@ export interface WorkflowPosition {
   y: number
 }
 
-export interface WorkflowMessagePart {
-  type: 'text' | 'attachment'
+export interface WorkflowTextPart {
+  type: 'text'
   value: string
 }
+
+export interface WorkflowAttachmentPart {
+  type: 'attachment'
+  value: string
+  name?: string
+  mimeType?: string
+}
+
+export type WorkflowMessagePart = WorkflowTextPart | WorkflowAttachmentPart
 
 export interface BusinessHour {
   day: string
@@ -102,16 +111,43 @@ export type WorkflowGraphErrorCode =
 
 export type WorkflowGraphError = DomainError<WorkflowGraphErrorCode>
 
-export interface UpdateWorkflowNodeInput {
+interface UpdateWorkflowNodeBase {
   id: string
   title: string
   description: string
 }
 
+export type UpdateWorkflowNodeInput =
+  | (UpdateWorkflowNodeBase & {
+      kind: 'trigger'
+    })
+  | (UpdateWorkflowNodeBase & {
+      kind: 'send-message'
+      parts: WorkflowMessagePart[]
+    })
+  | (UpdateWorkflowNodeBase & {
+      kind: 'business-hours'
+      hours: BusinessHour[]
+      timezone: string
+    })
+  | (UpdateWorkflowNodeBase & {
+      kind: 'add-comment'
+      comment: string
+    })
+
 export type WorkflowMutationErrorCode =
   | 'node-not-found'
   | 'node-read-only'
+  | 'node-kind-mismatch'
   | 'title-required'
   | 'description-required'
+  | 'message-content-required'
+  | 'message-text-required'
+  | 'attachment-required'
+  | 'business-hours-required'
+  | 'business-day-duplicate'
+  | 'business-time-invalid'
+  | 'business-time-range-invalid'
+  | 'timezone-required'
 
 export type WorkflowMutationError = DomainError<WorkflowMutationErrorCode>

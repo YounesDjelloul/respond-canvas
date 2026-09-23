@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { render, screen } from '@testing-library/vue'
+import { fireEvent, render, screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { useWorkflowEditorContext } from '../../composables/workflow-editor-context'
@@ -34,10 +34,78 @@ describe('NodeDetailsDrawer', () => {
 
     expect(details.confirmDelete).toHaveBeenCalledOnce()
   })
+
+  it('edits message text and forwards attachment uploads', async () => {
+    const user = userEvent.setup()
+    const editor = createEditor({})
+    editor.details.sendMessage.isVisible = computed(() => true)
+    editor.details.sendMessage.items = computed(() => [
+      {
+        index: 0,
+        type: 'text',
+        value: 'Hello',
+        name: '',
+        isImage: false,
+      },
+    ])
+    renderEditor(editor)
+
+    const message = screen.getByLabelText('Text 1')
+    await user.clear(message)
+    await user.type(message, 'Updated')
+    const upload = screen.getByLabelText('Upload attachments')
+    await user.upload(upload, new File(['image'], 'welcome.png', { type: 'image/png' }))
+    await user.click(screen.getByRole('button', { name: 'Remove text 1' }))
+
+    expect(editor.details.sendMessage.updateText).toHaveBeenLastCalledWith(0, 'Updated')
+    expect(editor.details.sendMessage.addAttachments).toHaveBeenCalledOnce()
+    expect(editor.details.sendMessage.removePart).toHaveBeenCalledWith(0)
+  })
+
+  it('edits internal comments and business hours', async () => {
+    const user = userEvent.setup()
+    const commentEditor = createEditor({})
+    commentEditor.details.addComment.isVisible = computed(() => true)
+    commentEditor.details.addComment.value.value = 'Follow up'
+    renderEditor(commentEditor)
+
+    await user.click(screen.getByRole('button', { name: 'Clear comment' }))
+    expect(commentEditor.details.addComment.clear).toHaveBeenCalledOnce()
+
+    const businessEditor = createEditor({})
+    businessEditor.details.businessHours.isVisible = computed(() => true)
+    businessEditor.details.businessHours.hours.value = [
+      { day: 'mon', startTime: '09:00', endTime: '17:00' },
+    ]
+    businessEditor.details.businessHours.timezone.value = 'UTC'
+    businessEditor.details.businessHours.timezoneOptions = computed(() => [
+      'UTC',
+      'Asia/Singapore',
+    ])
+    renderEditor(businessEditor)
+
+    await fireEvent.update(screen.getByLabelText('mon opening time'), '08:00')
+    await user.selectOptions(screen.getByLabelText('Timezone'), 'Asia/Singapore')
+
+    expect(businessEditor.details.businessHours.updateHour).toHaveBeenCalledWith(
+      0,
+      'startTime',
+      '08:00',
+    )
+    expect(businessEditor.details.businessHours.updateTimezone).toHaveBeenCalledWith(
+      'Asia/Singapore',
+    )
+  })
 })
 
 function renderDrawer(overrides: { isDeleteConfirming?: boolean } = {}) {
   const editor = createEditor(overrides)
+  renderEditor(editor)
+
+  return editor.details
+}
+
+function renderEditor(editor: WorkflowEditorController) {
   vi.mocked(useWorkflowEditorContext).mockReturnValue(editor)
 
   render(NodeDetailsDrawer, {
@@ -50,8 +118,6 @@ function renderDrawer(overrides: { isDeleteConfirming?: boolean } = {}) {
       },
     },
   })
-
-  return editor.details
 }
 
 function createEditor(overrides: {
@@ -78,6 +144,7 @@ function createEditor(overrides: {
       titleError: computed(() => null),
       descriptionError: computed(() => null),
       errorMessage: computed(() => null),
+      contentErrorMessages: computed(() => []),
       isDirty: computed(() => true),
       isSaving: ref(false),
       isDeleting: ref(false),
@@ -86,6 +153,29 @@ function createEditor(overrides: {
       setVisibility: vi.fn(),
       updateTitle: vi.fn(),
       updateDescription: vi.fn(),
+      sendMessage: {
+        isVisible: computed(() => false),
+        items: computed(() => []),
+        attachmentError: ref(null),
+        addText: vi.fn(),
+        updateText: vi.fn(),
+        removePart: vi.fn(),
+        addAttachments: vi.fn(),
+      },
+      addComment: {
+        isVisible: computed(() => false),
+        value: ref(''),
+        update: vi.fn(),
+        clear: vi.fn(),
+      },
+      businessHours: {
+        isVisible: computed(() => false),
+        hours: ref([]),
+        timezone: ref(''),
+        timezoneOptions: computed(() => []),
+        updateHour: vi.fn(),
+        updateTimezone: vi.fn(),
+      },
       save: vi.fn(),
       requestDelete: vi.fn(),
       cancelDelete: vi.fn(),

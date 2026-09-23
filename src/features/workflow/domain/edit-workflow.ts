@@ -3,6 +3,7 @@ import type {
   UpdateWorkflowNodeInput,
   WorkflowGraph,
   WorkflowMutationError,
+  WorkflowNode,
 } from './types'
 
 export function updateWorkflowNode(
@@ -17,6 +18,14 @@ export function updateWorkflowNode(
 
   if (!node.editable) {
     return failure('node-read-only', 'This node is read-only', ['nodes', input.id])
+  }
+
+  if (node.kind !== input.kind) {
+    return failure(
+      'node-kind-mismatch',
+      'The submitted details do not match the selected node type',
+      ['nodes', input.id, 'kind'],
+    )
   }
 
   const title = input.title.trim()
@@ -39,22 +48,20 @@ export function updateWorkflowNode(
     })
   }
 
+  errors.push(...validateNodeContent(input))
+
   if (errors.length > 0) {
     return { ok: false, errors }
   }
+
+  const updatedNode = updateNodeContent(node, input, title, description)
 
   return {
     ok: true,
     value: {
       ...graph,
       nodes: graph.nodes.map((candidate) =>
-        candidate.id === input.id
-          ? {
-              ...candidate,
-              title,
-              description,
-            }
-          : candidate,
+        candidate.id === input.id ? updatedNode : candidate,
       ),
     },
   }
@@ -107,6 +114,141 @@ function collectDescendantIds(graph: WorkflowGraph, nodeId: string): Set<string>
   }
 
   return collectedIds
+}
+
+function validateNodeContent(input: UpdateWorkflowNodeInput): WorkflowMutationError[] {
+  if (input.kind === 'send-message') {
+    if (input.parts.length === 0) {
+      return [
+        {
+          code: 'message-content-required',
+          message: 'Add at least one message or attachment',
+          path: ['config', 'parts'],
+        },
+      ]
+    }
+
+    return input.parts.flatMap((part, index) => {
+      if (part.value.trim()) {
+        return []
+      }
+
+      return [
+        {
+          code: part.type === 'text' ? 'message-text-required' : 'attachment-required',
+          message: part.type === 'text' ? 'Message text cannot be empty' : 'Attachment is required',
+          path: ['config', 'parts', index, 'value'],
+        },
+      ]
+    })
+  }
+
+  if (input.kind === 'business-hours') {
+    const errors: WorkflowMutationError[] = []
+
+    if (input.hours.length === 0) {
+      errors.push({
+        code: 'business-hours-required',
+        message: 'Configure at least one business day',
+        path: ['config', 'hours'],
+      })
+    }
+
+    if (!input.timezone.trim()) {
+      errors.push({
+        code: 'timezone-required',
+        message: 'Timezone is required',
+        path: ['config', 'timezone'],
+      })
+    }
+
+    const seenDays = new Set<string>()
+
+    input.hours.forEach((hours, index) => {
+      if (seenDays.has(hours.day)) {
+        errors.push({
+          code: 'business-day-duplicate',
+          message: `${hours.day} is configured more than once`,
+          path: ['config', 'hours', index, 'day'],
+        })
+      }
+
+      seenDays.add(hours.day)
+
+      if (!isTime(hours.startTime) || !isTime(hours.endTime)) {
+        errors.push({
+          code: 'business-time-invalid',
+          message: 'Use a valid 24-hour time',
+          path: ['config', 'hours', index],
+        })
+      } else if (hours.startTime >= hours.endTime) {
+        errors.push({
+          code: 'business-time-range-invalid',
+          message: 'Opening time must be before closing time',
+          path: ['config', 'hours', index],
+        })
+      }
+    })
+
+    return errors
+  }
+
+  return []
+}
+
+function updateNodeContent(
+  node: WorkflowNode,
+  input: UpdateWorkflowNodeInput,
+  title: string,
+  description: string,
+): WorkflowNode {
+  if (node.kind === 'send-message' && input.kind === 'send-message') {
+    return {
+      ...node,
+      title,
+      description,
+      config: {
+        parts: input.parts.map((part) => ({
+          ...part,
+          value: part.value.trim(),
+        })),
+      },
+    }
+  }
+
+  if (node.kind === 'business-hours' && input.kind === 'business-hours') {
+    return {
+      ...node,
+      title,
+      description,
+      config: {
+        ...node.config,
+        hours: input.hours.map((hours) => ({ ...hours })),
+        timezone: input.timezone.trim(),
+      },
+    }
+  }
+
+  if (node.kind === 'add-comment' && input.kind === 'add-comment') {
+    return {
+      ...node,
+      title,
+      description,
+      config: {
+        comment: input.comment.trim(),
+      },
+    }
+  }
+
+  return {
+    ...node,
+    title,
+    description,
+  }
+}
+
+function isTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
 }
 
 function failure(

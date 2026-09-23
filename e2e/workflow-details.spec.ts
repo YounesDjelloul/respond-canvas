@@ -12,6 +12,18 @@ test('opens, edits, and closes node details with the keyboard', async ({ page })
 
   await page.getByLabel('Title').fill('Updated welcome')
   await page.getByLabel('Description').fill('A warmer opening message')
+  await page
+    .getByRole('textbox', { name: 'Text 1' })
+    .fill('Hello from the updated workflow')
+  await page.getByLabel('Upload attachments').setInputFiles({
+    name: 'welcome.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  })
+  await expect(page.getByRole('img', { name: 'welcome.png' })).toBeVisible()
   await page.getByRole('button', { name: 'Save changes' }).click()
 
   await expect(
@@ -28,4 +40,10 @@ test('opens an editable node directly from its route', async ({ page }) => {
 
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByLabel('Title')).toHaveValue('Business Hours')
+  await page.getByLabel('mon opening time').fill('08:00')
+  await page.getByLabel('Timezone').selectOption('Asia/Singapore')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+
+  await expect(page.getByLabel('mon opening time')).toHaveValue('08:00')
+  await expect(page.getByLabel('Timezone')).toHaveValue('Asia/Singapore')
 })

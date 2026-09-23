@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import Drawer from 'primevue/drawer'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
+import AddCommentEditor from './AddCommentEditor.vue'
+import BusinessHoursEditor from './BusinessHoursEditor.vue'
+import SendMessageEditor from './SendMessageEditor.vue'
 
 const {
   details: {
@@ -12,6 +15,7 @@ const {
     titleError,
     descriptionError,
     errorMessage,
+    contentErrorMessages,
     isDirty,
     isSaving,
     isDeleting,
@@ -19,6 +23,9 @@ const {
     setVisibility,
     updateTitle,
     updateDescription,
+    sendMessage: { isVisible: isSendMessage },
+    addComment: { isVisible: isAddComment },
+    businessHours: { isVisible: isBusinessHours },
     save,
     requestDelete,
     cancelDelete,
@@ -102,6 +109,23 @@ const {
             {{ descriptionError }}
           </p>
         </div>
+
+        <div
+          v-if="isSendMessage || isAddComment || isBusinessHours"
+          class="border-t border-slate-100 pt-6"
+        >
+          <SendMessageEditor v-if="isSendMessage" />
+          <AddCommentEditor v-else-if="isAddComment" />
+          <BusinessHoursEditor v-else-if="isBusinessHours" />
+        </div>
+
+        <ul
+          v-if="contentErrorMessages.length"
+          role="alert"
+          class="space-y-1 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700"
+        >
+          <li v-for="message in contentErrorMessages" :key="message">{{ message }}</li>
+        </ul>
 
         <p
           v-if="errorMessage"
