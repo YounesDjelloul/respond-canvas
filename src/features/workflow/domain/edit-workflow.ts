@@ -1,10 +1,152 @@
 import type { DomainResult } from '@/features/shared/domain'
 import type {
+  InsertWorkflowNodeInput,
   UpdateWorkflowNodeInput,
   WorkflowGraph,
   WorkflowMutationError,
   WorkflowNode,
 } from './types'
+import { createWorkflowLayout } from './layout-workflow'
+
+const defaultBusinessHours = ['mon', 'tue', 'wed', 'thu', 'fri'].map((day) => ({
+  day,
+  startTime: '09:00',
+  endTime: '17:00',
+}))
+
+export function insertWorkflowNode(
+  graph: WorkflowGraph,
+  input: InsertWorkflowNodeInput,
+): DomainResult<WorkflowGraph, WorkflowMutationError> {
+  const source = graph.nodes.find((node) => node.id === input.insertionPoint.sourceId)
+
+  if (!source) {
+    return failure(
+      'insertion-source-not-found',
+      'The insertion source no longer exists',
+      ['insertionPoint', 'sourceId'],
+    )
+  }
+
+  const target = input.insertionPoint.targetId
+    ? graph.nodes.find((node) => node.id === input.insertionPoint.targetId) ?? null
+    : null
+
+  if (input.insertionPoint.targetId && !target) {
+    return failure(
+      'insertion-target-not-found',
+      'The insertion target no longer exists',
+      ['insertionPoint', 'targetId'],
+    )
+  }
+
+  const replacedEdge = target
+    ? graph.edges.find((edge) => edge.source === source.id && edge.target === target.id)
+    : null
+
+  if (target && !replacedEdge) {
+    return failure(
+      'insertion-edge-not-found',
+      'The selected workflow connection no longer exists',
+      ['insertionPoint'],
+    )
+  }
+
+  if (!target && graph.edges.some((edge) => edge.source === source.id)) {
+    return failure(
+      'insertion-not-allowed',
+      'Nodes can only be appended at the end of a path',
+      ['insertionPoint'],
+    )
+  }
+
+  if (target?.kind === 'branch' && source.kind === 'business-hours') {
+    return failure(
+      'insertion-not-allowed',
+      'Steps cannot be inserted before a generated branch',
+      ['insertionPoint'],
+    )
+  }
+
+  const proposedIds =
+    input.kind === 'business-hours'
+      ? [input.id, input.successConnectorId, input.failureConnectorId]
+      : [input.id]
+  const existingIds = new Set(graph.nodes.map((node) => node.id))
+
+  if (new Set(proposedIds).size !== proposedIds.length || proposedIds.some((id) => existingIds.has(id))) {
+    return failure(
+      'duplicate-node-id',
+      'Every workflow node must have a unique ID',
+      ['id'],
+    )
+  }
+
+  const title = input.title.trim()
+  const description = input.description.trim()
+  const errors: WorkflowMutationError[] = []
+
+  if (!title) {
+    errors.push({ code: 'title-required', message: 'Title is required', path: ['title'] })
+  }
+
+  if (!description) {
+    errors.push({
+      code: 'description-required',
+      message: 'Description is required',
+      path: ['description'],
+    })
+  }
+
+  if (input.kind === 'business-hours' && !input.timezone.trim()) {
+    errors.push({
+      code: 'timezone-required',
+      message: 'Timezone is required',
+      path: ['timezone'],
+    })
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors }
+  }
+
+  const insertedNodes = createInsertedNodes(input, source.id, target, title, description)
+  const updatedNodes = graph.nodes.map((node) => {
+    if (node.id !== target?.id) {
+      return node
+    }
+
+    return {
+      ...node,
+      parentId:
+        input.kind === 'business-hours' ? input.successConnectorId : input.id,
+    }
+  })
+  const nodes = [...updatedNodes, ...insertedNodes]
+  const positions = createWorkflowLayout(nodes)
+  const positionedNodes = nodes.map((node) => ({
+    ...node,
+    position: positions.get(node.id) ?? node.position,
+  }))
+
+  return {
+    ok: true,
+    value: {
+      nodes: positionedNodes,
+      edges: positionedNodes.flatMap((node) =>
+        node.parentId === null
+          ? []
+          : [
+              {
+                id: `${node.parentId}:${node.id}`,
+                source: node.parentId,
+                target: node.id,
+              },
+            ],
+      ),
+    },
+  }
+}
 
 export function updateWorkflowNode(
   graph: WorkflowGraph,
@@ -92,6 +234,88 @@ export function deleteWorkflowNode(
       ),
     },
   }
+}
+
+function createInsertedNodes(
+  input: InsertWorkflowNodeInput,
+  parentId: string,
+  target: WorkflowNode | null,
+  title: string,
+  description: string,
+): WorkflowNode[] {
+  const position = target?.position ?? { x: 0, y: 0 }
+
+  if (input.kind === 'send-message') {
+    return [
+      {
+        id: input.id,
+        parentId,
+        kind: 'send-message',
+        title,
+        description,
+        editable: true,
+        accent: 'green',
+        position,
+        config: { parts: [] },
+      },
+    ]
+  }
+
+  if (input.kind === 'add-comment') {
+    return [
+      {
+        id: input.id,
+        parentId,
+        kind: 'add-comment',
+        title,
+        description,
+        editable: true,
+        accent: 'blue',
+        position,
+        config: { comment: '' },
+      },
+    ]
+  }
+
+  return [
+    {
+      id: input.id,
+      parentId,
+      kind: 'business-hours',
+      title,
+      description,
+      editable: true,
+      accent: 'orange',
+      position,
+      config: {
+        hours: defaultBusinessHours.map((hours) => ({ ...hours })),
+        timezone: input.timezone.trim(),
+        connectorIds: [input.successConnectorId, input.failureConnectorId],
+      },
+    },
+    {
+      id: input.successConnectorId,
+      parentId: input.id,
+      kind: 'branch',
+      title: 'Success',
+      description: 'Conditions matched',
+      editable: false,
+      accent: 'green',
+      position,
+      config: { outcome: 'success' },
+    },
+    {
+      id: input.failureConnectorId,
+      parentId: input.id,
+      kind: 'branch',
+      title: 'Failure',
+      description: 'Conditions did not match',
+      editable: false,
+      accent: 'neutral',
+      position,
+      config: { outcome: 'failure' },
+    },
+  ]
 }
 
 function collectDescendantIds(graph: WorkflowGraph, nodeId: string): Set<string> {

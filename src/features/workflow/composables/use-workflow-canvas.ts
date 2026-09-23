@@ -1,19 +1,24 @@
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { Position } from '@vue-flow/core'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { workflowRepository } from '../data/workflow-repository'
 import type { WorkflowRepository } from '../data/types'
 import {
   createWorkflowGraph,
   deleteWorkflowNode,
+  insertWorkflowNode,
   updateWorkflowNode,
 } from '../domain'
 import type {
   BusinessHour,
+  CreatableWorkflowNodeKind,
+  InsertWorkflowNodeInput,
   UpdateWorkflowNodeInput,
   WorkflowAttachmentPart,
   WorkflowGraph,
+  WorkflowInsertionPoint,
   WorkflowMessagePart,
   WorkflowMutationError,
   WorkflowNode,
@@ -24,7 +29,9 @@ import type {
   WorkflowCanvasEdge,
   WorkflowCanvasNode,
   WorkflowMessageDraftItem,
+  WorkflowNodeTypeOption,
 } from '../types'
+import { useWorkflowEditorStore } from '../stores/workflow-editor'
 
 const workflowQueryKey = ['workflow'] as const
 const maximumAttachmentSize = 5 * 1024 * 1024
@@ -42,11 +49,36 @@ const commonTimezones = [
   'Asia/Tokyo',
   'Australia/Sydney',
 ]
+const nodeTypeOptions: WorkflowNodeTypeOption[] = [
+  {
+    value: 'send-message',
+    label: 'Send message',
+    description: 'Send text or attachments to the contact.',
+    icon: '➤',
+    iconClass: 'bg-emerald-50 text-emerald-600',
+  },
+  {
+    value: 'add-comment',
+    label: 'Add comment',
+    description: 'Leave an internal note for your team.',
+    icon: '≡',
+    iconClass: 'bg-sky-50 text-sky-600',
+  },
+  {
+    value: 'business-hours',
+    label: 'Business hours',
+    description: 'Route the workflow by team availability.',
+    icon: '◷',
+    iconClass: 'bg-orange-50 text-orange-600',
+  },
+]
 
 export function useWorkflowEditor(repository: WorkflowRepository = workflowRepository) {
   const route = useRoute()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const editorStore = useWorkflowEditorStore()
+  const { insertionPoint, mode } = storeToRefs(editorStore)
   const title = ref('')
   const description = ref('')
   const messageParts = ref<WorkflowMessagePart[]>([])
@@ -57,6 +89,10 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
   const operationErrors = ref<readonly WorkflowMutationError[]>([])
   const isDeleteConfirming = ref(false)
   const lastFocusedNodeId = ref<string | null>(null)
+  const creationKind = ref<CreatableWorkflowNodeKind>('send-message')
+  const creationTitle = ref('')
+  const creationDescription = ref('')
+  const creationErrors = ref<readonly WorkflowMutationError[]>([])
 
   const workflowQuery = useQuery({
     queryKey: workflowQueryKey,
@@ -114,6 +150,9 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
         editable: node.editable,
         hasParent: node.parentId !== null,
         hasChildren: parentIds.has(node.id),
+        canInsertAfter: !parentIds.has(node.id),
+        isInsertionMode: mode.value === 'choosing-insertion',
+        insertionLabel: `Insert a step after ${node.title}`,
         icon: iconFor(node.kind),
         accentClass: accentClassFor(node.accent),
         iconClass: iconClassFor(node.accent),
@@ -126,12 +165,23 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
       return []
     }
 
-    return graph.value.edges.map((edge) => ({
-      ...edge,
-      type: 'smoothstep',
-      selectable: false,
-      focusable: false,
-    }))
+    return graph.value.edges.map((edge) => {
+      const source = graph.value?.nodes.find((node) => node.id === edge.source)
+      const target = graph.value?.nodes.find((node) => node.id === edge.target)
+      const isGeneratedBranch = source?.kind === 'business-hours' && target?.kind === 'branch'
+
+      return {
+        ...edge,
+        type: isGeneratedBranch ? 'smoothstep' : 'workflow-insertion',
+        selectable: false,
+        focusable: false,
+        data: {
+          insertionPoint: { sourceId: edge.source, targetId: edge.target },
+          insertionLabel: `Insert a step between ${source?.title ?? 'source'} and ${target?.title ?? 'target'}`,
+          isInsertionMode: mode.value === 'choosing-insertion',
+        },
+      }
+    })
   })
 
   const updateMutation = useMutation({
@@ -143,6 +193,11 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
   const deleteMutation = useMutation({
     mutationFn: async (nodeId: string) => deleteWorkflowNode(requireGraph(graph.value), nodeId),
     onSuccess: applyMutationResult,
+  })
+
+  const insertMutation = useMutation({
+    mutationFn: async (input: InsertWorkflowNodeInput) =>
+      insertWorkflowNode(requireGraph(graph.value), input),
   })
 
   const errorMessage = computed(() => {
@@ -210,6 +265,44 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
   const timezoneOptions = computed(() =>
     Array.from(new Set([timezone.value, ...commonTimezones])).filter(Boolean),
   )
+  const isChoosingInsertion = computed(() => mode.value === 'choosing-insertion')
+  const isCreationOpen = computed(
+    () => mode.value === 'creating' && insertionPoint.value !== null,
+  )
+  const insertionContext = computed(() => {
+    if (!graph.value || !insertionPoint.value) {
+      return ''
+    }
+
+    const source = graph.value.nodes.find(
+      (node) => node.id === insertionPoint.value?.sourceId,
+    )
+    const target = insertionPoint.value.targetId
+      ? graph.value.nodes.find((node) => node.id === insertionPoint.value?.targetId)
+      : null
+
+    return target
+      ? `${source?.title ?? 'Step'} → ${target.title}`
+      : `After ${source?.title ?? 'step'}`
+  })
+  const creationTitleError = computed(
+    () => creationErrors.value.find((error) => error.path?.[0] === 'title')?.message ?? null,
+  )
+  const creationDescriptionError = computed(
+    () =>
+      creationErrors.value.find((error) => error.path?.[0] === 'description')?.message ??
+      null,
+  )
+  const creationErrorMessage = computed(
+    () =>
+      creationErrors.value.find(
+        (error) => error.path?.[0] !== 'title' && error.path?.[0] !== 'description',
+      )?.message ?? null,
+  )
+  const showsBusinessHoursNote = computed(() => creationKind.value === 'business-hours')
+  const creationButtonLabel = computed(() =>
+    isChoosingInsertion.value ? 'Cancel' : 'Create New Node',
+  )
 
   watch(
     selectedNode,
@@ -241,6 +334,18 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
     { immediate: true },
   )
 
+  function handleEditorKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mode.value === 'choosing-insertion') {
+      editorStore.cancelInsertion()
+    }
+  }
+
+  onMounted(() => window.addEventListener('keydown', handleEditorKeydown))
+  onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleEditorKeydown)
+    editorStore.cancelInsertion()
+  })
+
   function openNode(nodeId: string) {
     const node = graph.value?.nodes.find((candidate) => candidate.id === nodeId)
 
@@ -265,6 +370,91 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
     if (!visible) {
       void closeNode()
     }
+  }
+
+  function beginInsertion() {
+    editorStore.beginInsertion()
+  }
+
+  function toggleInsertion() {
+    if (isChoosingInsertion.value) {
+      cancelInsertion()
+      return
+    }
+
+    beginInsertion()
+  }
+
+  function openCreation(point: WorkflowInsertionPoint) {
+    creationKind.value = 'send-message'
+    creationTitle.value = ''
+    creationDescription.value = ''
+    creationErrors.value = []
+    editorStore.selectInsertionPoint(point)
+  }
+
+  function openCreationAfter(sourceId: string) {
+    openCreation({ sourceId, targetId: null })
+  }
+
+  function cancelInsertion() {
+    editorStore.cancelInsertion()
+    creationErrors.value = []
+  }
+
+  function setCreationVisibility(visible: boolean) {
+    if (!visible) {
+      cancelInsertion()
+    }
+  }
+
+  function updateCreationKind(value: CreatableWorkflowNodeKind) {
+    creationKind.value = value
+    creationErrors.value = []
+  }
+
+  function updateCreationTitle(value: string | undefined) {
+    creationTitle.value = value ?? ''
+    creationErrors.value = creationErrors.value.filter(
+      (error) => error.path?.[0] !== 'title',
+    )
+  }
+
+  function updateCreationDescription(value: string | undefined) {
+    creationDescription.value = value ?? ''
+    creationErrors.value = creationErrors.value.filter(
+      (error) => error.path?.[0] !== 'description',
+    )
+  }
+
+  function createNode() {
+    if (!insertionPoint.value) {
+      return
+    }
+
+    const nodeId = createWorkflowId('step')
+    const input = createInsertionInput(
+      nodeId,
+      insertionPoint.value,
+      creationKind.value,
+      creationTitle.value,
+      creationDescription.value,
+    )
+
+    creationErrors.value = []
+    insertMutation.mutate(input, {
+      onSuccess: (result) => {
+        if (!result.ok) {
+          creationErrors.value = result.errors
+          return
+        }
+
+        queryClient.setQueryData(workflowQueryKey, { ok: true, value: result.value })
+        editorStore.cancelInsertion()
+        lastFocusedNodeId.value = nodeId
+        void router.push({ name: 'workflow-node', params: { nodeId } })
+      },
+    })
   }
 
   function updateTitle(value: string) {
@@ -427,6 +617,32 @@ export function useWorkflowEditor(repository: WorkflowRepository = workflowRepos
       nodes,
       edges,
       openNode,
+      openCreation,
+      openCreationAfter,
+      isChoosingInsertion,
+    },
+    creation: {
+      isOpen: isCreationOpen,
+      isChoosingInsertion,
+      context: insertionContext,
+      kind: creationKind,
+      title: creationTitle,
+      description: creationDescription,
+      titleError: creationTitleError,
+      descriptionError: creationDescriptionError,
+      errorMessage: creationErrorMessage,
+      typeOptions: nodeTypeOptions,
+      showsBusinessHoursNote,
+      buttonLabel: creationButtonLabel,
+      isCreating: insertMutation.isPending,
+      begin: beginInsertion,
+      toggle: toggleInsertion,
+      cancel: cancelInsertion,
+      setVisibility: setCreationVisibility,
+      updateKind: updateCreationKind,
+      updateTitle: updateCreationTitle,
+      updateDescription: updateCreationDescription,
+      submit: createNode,
     },
     details: {
       selectedNode,
@@ -487,6 +703,40 @@ interface NodeDraft {
   comment: string
   businessHours: BusinessHour[]
   timezone: string
+}
+
+function createInsertionInput(
+  id: string,
+  insertionPoint: WorkflowInsertionPoint,
+  kind: CreatableWorkflowNodeKind,
+  title: string,
+  description: string,
+): InsertWorkflowNodeInput {
+  const base = {
+    id,
+    insertionPoint: { ...insertionPoint },
+    title,
+    description,
+  }
+
+  if (kind === 'business-hours') {
+    return {
+      ...base,
+      kind,
+      successConnectorId: createWorkflowId('success'),
+      failureConnectorId: createWorkflowId('failure'),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    }
+  }
+
+  return {
+    ...base,
+    kind,
+  }
+}
+
+function createWorkflowId(prefix: string): string {
+  return `${prefix}-${globalThis.crypto.randomUUID()}`
 }
 
 function createUpdateInput(node: WorkflowNode, draft: NodeDraft): UpdateWorkflowNodeInput {

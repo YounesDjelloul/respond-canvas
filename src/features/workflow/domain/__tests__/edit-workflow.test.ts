@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createWorkflowGraph, deleteWorkflowNode, updateWorkflowNode } from '../index'
+import {
+  createWorkflowGraph,
+  deleteWorkflowNode,
+  insertWorkflowNode,
+  updateWorkflowNode,
+} from '../index'
 
 const payload = [
   {
@@ -192,6 +197,123 @@ describe('workflow editing', () => {
       { id: 'root:branch', source: 'root', target: 'branch' },
       { id: 'root:hours', source: 'root', target: 'hours' },
     ])
+  })
+
+  it('inserts a node into an existing edge without mutating the source graph', () => {
+    const graph = validGraph()
+    const result = insertWorkflowNode(graph, {
+      id: 'inserted',
+      insertionPoint: { sourceId: 'branch', targetId: 'message' },
+      kind: 'add-comment',
+      title: '  Qualify lead  ',
+      description: '  Add context for the team  ',
+    })
+
+    expect(result.ok).toBe(true)
+
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.value.nodes.find((node) => node.id === 'inserted')).toMatchObject({
+      parentId: 'branch',
+      kind: 'add-comment',
+      title: 'Qualify lead',
+      description: 'Add context for the team',
+    })
+    expect(result.value.nodes.find((node) => node.id === 'message')?.parentId).toBe('inserted')
+    expect(result.value.edges).toEqual(
+      expect.arrayContaining([
+        { id: 'branch:inserted', source: 'branch', target: 'inserted' },
+        { id: 'inserted:message', source: 'inserted', target: 'message' },
+      ]),
+    )
+    expect(graph.nodes.find((node) => node.id === 'message')?.parentId).toBe('branch')
+  })
+
+  it('creates Business Hours branches and continues the old path through Success', () => {
+    const result = insertWorkflowNode(validGraph(), {
+      id: 'new-hours',
+      successConnectorId: 'new-success',
+      failureConnectorId: 'new-failure',
+      insertionPoint: { sourceId: 'branch', targetId: 'message' },
+      kind: 'business-hours',
+      title: 'Support hours',
+      description: 'Route contacts by team availability',
+      timezone: 'Europe/Paris',
+    })
+
+    expect(result.ok).toBe(true)
+
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.value.nodes.find((node) => node.id === 'new-hours')).toMatchObject({
+      parentId: 'branch',
+      config: {
+        timezone: 'Europe/Paris',
+        connectorIds: ['new-success', 'new-failure'],
+      },
+    })
+    expect(result.value.nodes.find((node) => node.id === 'new-success')).toMatchObject({
+      parentId: 'new-hours',
+      config: { outcome: 'success' },
+    })
+    expect(result.value.nodes.find((node) => node.id === 'new-failure')).toMatchObject({
+      parentId: 'new-hours',
+      config: { outcome: 'failure' },
+    })
+    expect(result.value.nodes.find((node) => node.id === 'message')?.parentId).toBe(
+      'new-success',
+    )
+  })
+
+  it('rejects appending after a node that already has an outgoing path', () => {
+    const result = insertWorkflowNode(validGraph(), {
+      id: 'inserted',
+      insertionPoint: { sourceId: 'root', targetId: null },
+      kind: 'send-message',
+      title: 'Message',
+      description: 'Send a message',
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      errors: [{ code: 'insertion-not-allowed' }],
+    })
+  })
+
+  it('rejects insertion between Business Hours and its generated connector', () => {
+    const graphWithBranches = insertWorkflowNode(validGraph(), {
+      id: 'new-hours',
+      successConnectorId: 'new-success',
+      failureConnectorId: 'new-failure',
+      insertionPoint: { sourceId: 'branch', targetId: 'message' },
+      kind: 'business-hours',
+      title: 'Support hours',
+      description: 'Route by availability',
+      timezone: 'UTC',
+    })
+
+    expect(graphWithBranches.ok).toBe(true)
+
+    if (!graphWithBranches.ok) {
+      return
+    }
+
+    const protectedResult = insertWorkflowNode(graphWithBranches.value, {
+      id: 'another',
+      insertionPoint: { sourceId: 'new-hours', targetId: 'new-success' },
+      kind: 'send-message',
+      title: 'Another',
+      description: 'Another message',
+    })
+
+    expect(protectedResult).toMatchObject({
+      ok: false,
+      errors: [{ code: 'insertion-not-allowed' }],
+    })
   })
 })
 

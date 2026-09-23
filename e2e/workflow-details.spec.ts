@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('opens, edits, and closes node details with the keyboard', async ({ page }) => {
   await page.goto('/')
 
-  const welcomeNode = page.getByRole('button', { name: /Welcome Message/i })
+  const welcomeNode = page.getByRole('button', { name: /^Welcome Message\./i })
   await welcomeNode.focus()
   await page.keyboard.press('Enter')
 
@@ -32,7 +32,9 @@ test('opens, edits, and closes node details with the keyboard', async ({ page })
   await page.keyboard.press('Escape')
 
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('button', { name: /Updated welcome/i })).toBeFocused()
+  await expect(
+    page.getByRole('button', { name: /^Updated welcome\./i }),
+  ).toBeFocused()
 })
 
 test('opens an editable node directly from its route', async ({ page }) => {
@@ -46,4 +48,29 @@ test('opens an editable node directly from its route', async ({ page }) => {
 
   await expect(page.getByLabel('mon opening time')).toHaveValue('08:00')
   await expect(page.getByLabel('Timezone')).toHaveValue('Asia/Singapore')
+})
+
+test('creates a terminal workflow step through insertion mode', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Create New Node' }).click()
+  await expect(page.getByText('Choose where to add the new step')).toBeVisible()
+
+  await page
+    .getByRole('button', { name: 'Insert a step after Add Comment #1' })
+    .click()
+  await expect(page.getByRole('dialog', { name: 'Add workflow step' })).toBeVisible()
+
+  await page.getByText('Add comment', { exact: true }).click()
+  await page.getByLabel('Title').fill('Escalation note')
+  await page.getByLabel('Description').fill('Add context for the support team')
+  await page.getByRole('button', { name: 'Create step' }).click()
+
+  await expect(page).toHaveURL(/\/nodes\/step-/)
+  const detailsDrawer = page.getByRole('dialog').filter({ hasText: 'Node details' })
+  await expect(detailsDrawer).toBeVisible()
+  await expect(detailsDrawer.getByLabel('Title')).toHaveValue('Escalation note')
+  await expect(
+    page.getByRole('button', { name: /^Escalation note\./i }),
+  ).toBeVisible()
 })

@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
 import { provideWorkflowEditor } from '../composables/workflow-editor-context'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
+import NodeCreationDialog from './NodeCreationDialog.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
 
 const {
   status: { errorMessage, isEmpty, isLoading },
+  creation: { isChoosingInsertion, buttonLabel, toggle: toggleInsertion },
 } = provideWorkflowEditor()
 </script>
 
@@ -24,11 +27,20 @@ const {
         </div>
       </div>
 
-      <div
-        class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600"
-      >
-        <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-        Sample workflow
+      <div class="flex items-center gap-2">
+        <div
+          class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 sm:flex"
+        >
+          <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          Sample workflow
+        </div>
+        <Button
+          :label="buttonLabel"
+          :severity="isChoosingInsertion ? 'secondary' : undefined"
+          size="small"
+          :outlined="isChoosingInsertion"
+          @click="toggleInsertion"
+        />
       </div>
     </header>
 
@@ -71,5 +83,6 @@ const {
     <WorkflowCanvas v-else />
 
     <NodeDetailsDrawer />
+    <NodeCreationDialog />
   </main>
 </template>

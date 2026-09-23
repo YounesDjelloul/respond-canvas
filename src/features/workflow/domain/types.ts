@@ -7,6 +7,11 @@ export type WorkflowNodeKind =
   | 'branch'
   | 'add-comment'
 
+export type CreatableWorkflowNodeKind =
+  | 'send-message'
+  | 'business-hours'
+  | 'add-comment'
+
 export type WorkflowNodeAccent = 'neutral' | 'violet' | 'orange' | 'green' | 'blue'
 
 export interface WorkflowPosition {
@@ -100,6 +105,32 @@ export interface WorkflowGraph {
   edges: WorkflowEdge[]
 }
 
+export interface WorkflowInsertionPoint {
+  sourceId: string
+  targetId: string | null
+}
+
+interface InsertWorkflowNodeBase {
+  id: string
+  insertionPoint: WorkflowInsertionPoint
+  title: string
+  description: string
+}
+
+export type InsertWorkflowNodeInput =
+  | (InsertWorkflowNodeBase & {
+      kind: 'send-message'
+    })
+  | (InsertWorkflowNodeBase & {
+      kind: 'add-comment'
+    })
+  | (InsertWorkflowNodeBase & {
+      kind: 'business-hours'
+      successConnectorId: string
+      failureConnectorId: string
+      timezone: string
+    })
+
 export type WorkflowGraphErrorCode =
   | 'invalid-payload'
   | 'invalid-node-data'
@@ -139,6 +170,11 @@ export type WorkflowMutationErrorCode =
   | 'node-not-found'
   | 'node-read-only'
   | 'node-kind-mismatch'
+  | 'duplicate-node-id'
+  | 'insertion-source-not-found'
+  | 'insertion-target-not-found'
+  | 'insertion-edge-not-found'
+  | 'insertion-not-allowed'
   | 'title-required'
   | 'description-required'
   | 'message-content-required'

@@ -1,5 +1,6 @@
 import { defineComponent, h } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { createPinia } from 'pinia'
 import { render, waitFor } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -256,6 +257,104 @@ describe('useWorkflowEditor', () => {
       })
     })
   })
+
+  it('enters insertion mode and inserts a step into an existing edge', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model, router } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.edges.value).toHaveLength(1)
+    })
+
+    model.creation.begin()
+
+    expect(model.creation.isChoosingInsertion.value).toBe(true)
+    expect(model.canvas.edges.value[0]?.data?.isInsertionMode).toBe(true)
+
+    model.canvas.openCreation({ sourceId: '1', targetId: 'message' })
+    model.creation.updateTitle('Qualify contact')
+    model.creation.updateDescription('Add context before greeting')
+    model.creation.submit()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value?.title).toBe('Qualify contact')
+    })
+
+    const insertedNode = model.details.selectedNode.value
+    expect(insertedNode?.kind).toBe('send-message')
+    expect(model.creation.isOpen.value).toBe(false)
+    expect(router.currentRoute.value.fullPath).toBe(`/nodes/${insertedNode?.id}`)
+    expect(model.canvas.edges.value).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: '1', target: insertedNode?.id }),
+        expect.objectContaining({ source: insertedNode?.id, target: 'message' }),
+      ]),
+    )
+  })
+
+  it('creates Business Hours branches and continues the existing path through Success', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.edges.value).toHaveLength(1)
+    })
+
+    model.canvas.openCreation({ sourceId: '1', targetId: 'message' })
+    model.creation.updateKind('business-hours')
+    model.creation.updateTitle('Support hours')
+    model.creation.updateDescription('Route by team availability')
+    model.creation.submit()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value?.kind).toBe('business-hours')
+    })
+
+    const businessHoursNode = model.details.selectedNode.value
+
+    if (businessHoursNode?.kind !== 'business-hours') {
+      throw new Error('The created node must be Business Hours')
+    }
+
+    const [successId, failureId] = businessHoursNode.config.connectorIds
+    expect(model.canvas.edges.value).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: businessHoursNode.id, target: successId }),
+        expect.objectContaining({ source: businessHoursNode.id, target: failureId }),
+        expect.objectContaining({ source: successId, target: 'message' }),
+      ]),
+    )
+    expect(
+      model.canvas.edges.value.find(
+        (edge) => edge.source === businessHoursNode.id && edge.target === successId,
+      )?.type,
+    ).toBe('smoothstep')
+  })
+
+  it('keeps creation open and presents validation failures', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.edges.value).toHaveLength(1)
+    })
+
+    model.canvas.openCreation({ sourceId: '1', targetId: 'message' })
+    model.creation.submit()
+
+    await waitFor(() => {
+      expect(model.creation.titleError.value).toBe('Title is required')
+    })
+
+    expect(model.creation.descriptionError.value).toBe('Description is required')
+    expect(model.creation.isOpen.value).toBe(true)
+  })
 })
 
 async function renderComposable(repository: WorkflowRepository, initialPath = '/') {
@@ -290,7 +389,7 @@ async function renderComposable(repository: WorkflowRepository, initialPath = '/
 
   render(TestHarness, {
     global: {
-      plugins: [router, [VueQueryPlugin, { queryClient }]],
+      plugins: [createPinia(), router, [VueQueryPlugin, { queryClient }]],
     },
   })
 

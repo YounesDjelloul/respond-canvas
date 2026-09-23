@@ -1,5 +1,10 @@
 import type { Edge, Node } from '@vue-flow/core'
-import type { WorkflowNodeAccent, WorkflowNodeKind } from './domain'
+import type {
+  CreatableWorkflowNodeKind,
+  WorkflowInsertionPoint,
+  WorkflowNodeAccent,
+  WorkflowNodeKind,
+} from './domain'
 
 export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   title: string
@@ -9,13 +14,31 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   editable: boolean
   hasParent: boolean
   hasChildren: boolean
+  canInsertAfter: boolean
+  isInsertionMode: boolean
+  insertionLabel: string
   icon: string
   accentClass: string
   iconClass: string
 }
 
 export type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
-export type WorkflowCanvasEdge = Edge
+
+export interface WorkflowCanvasEdgeData extends Record<string, unknown> {
+  insertionPoint: WorkflowInsertionPoint
+  insertionLabel: string
+  isInsertionMode: boolean
+}
+
+export type WorkflowCanvasEdge = Edge<WorkflowCanvasEdgeData>
+
+export interface WorkflowNodeTypeOption {
+  value: CreatableWorkflowNodeKind
+  label: string
+  description: string
+  icon: string
+  iconClass: string
+}
 
 export interface WorkflowMessageDraftItem {
   index: number

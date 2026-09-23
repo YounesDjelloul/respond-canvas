@@ -1,10 +1,16 @@
 export { createWorkflowGraph } from './create-workflow-graph'
-export { deleteWorkflowNode, updateWorkflowNode } from './edit-workflow'
+export {
+  deleteWorkflowNode,
+  insertWorkflowNode,
+  updateWorkflowNode,
+} from './edit-workflow'
 export type {
   AddCommentWorkflowNode,
   BranchWorkflowNode,
   BusinessHour,
   BusinessHoursWorkflowNode,
+  CreatableWorkflowNodeKind,
+  InsertWorkflowNodeInput,
   SendMessageWorkflowNode,
   TriggerWorkflowNode,
   UpdateWorkflowNodeInput,
@@ -13,6 +19,7 @@ export type {
   WorkflowGraph,
   WorkflowGraphError,
   WorkflowGraphErrorCode,
+  WorkflowInsertionPoint,
   WorkflowMutationError,
   WorkflowMutationErrorCode,
   WorkflowMessagePart,

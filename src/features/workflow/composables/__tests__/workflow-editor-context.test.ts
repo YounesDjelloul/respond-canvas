@@ -1,5 +1,6 @@
 import { defineComponent, h } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { createPinia } from 'pinia'
 import { render } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -46,7 +47,7 @@ describe('workflow editor context', () => {
 
     render(Parent, {
       global: {
-        plugins: [router, [VueQueryPlugin, { queryClient }]],
+        plugins: [createPinia(), router, [VueQueryPlugin, { queryClient }]],
       },
     })
 

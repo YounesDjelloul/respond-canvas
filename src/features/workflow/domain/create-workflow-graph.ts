@@ -4,8 +4,8 @@ import type {
   WorkflowGraph,
   WorkflowGraphError,
   WorkflowNode,
-  WorkflowPosition,
 } from './types'
+import { createWorkflowLayout } from './layout-workflow'
 
 const sourceIdSchema = z.union([z.string().min(1), z.number().finite()])
 
@@ -63,9 +63,6 @@ const commentDataSchema = z.object({
 
 type SourceNode = z.infer<typeof sourceNodeSchema>
 
-const horizontalGap = 320
-const verticalGap = 180
-
 export function createWorkflowGraph(
   payload: unknown,
 ): DomainResult<WorkflowGraph, WorkflowGraphError> {
@@ -96,7 +93,7 @@ export function createWorkflowGraph(
     return { ok: false, errors: relationshipErrors }
   }
 
-  const positions = createTreeLayout(nodes)
+  const positions = createWorkflowLayout(nodes)
   const positionedNodes = nodes.map((node) => ({
     ...node,
     position: positions.get(node.id) ?? node.position,
@@ -355,40 +352,6 @@ function validateRelationships(nodes: WorkflowNode[]): WorkflowGraphError[] {
   }
 
   return errors
-}
-
-function createTreeLayout(nodes: WorkflowNode[]): Map<string, WorkflowPosition> {
-  const childrenByParent = new Map<string | null, WorkflowNode[]>()
-
-  for (const node of nodes) {
-    const siblings = childrenByParent.get(node.parentId) ?? []
-    childrenByParent.set(node.parentId, [...siblings, node])
-  }
-
-  const positions = new Map<string, WorkflowPosition>()
-  let leafIndex = 0
-
-  function placeNode(node: WorkflowNode, depth: number): number {
-    const children = childrenByParent.get(node.id) ?? []
-
-    if (children.length === 0) {
-      const x = leafIndex * horizontalGap
-      leafIndex += 1
-      positions.set(node.id, { x, y: depth * verticalGap })
-      return x
-    }
-
-    const childPositions = children.map((child) => placeNode(child, depth + 1))
-    const x = childPositions.reduce((total, childX) => total + childX, 0) / childPositions.length
-    positions.set(node.id, { x, y: depth * verticalGap })
-    return x
-  }
-
-  for (const rootNode of childrenByParent.get(null) ?? []) {
-    placeNode(rootNode, 0)
-  }
-
-  return positions
 }
 
 function humanize(value: string): string {

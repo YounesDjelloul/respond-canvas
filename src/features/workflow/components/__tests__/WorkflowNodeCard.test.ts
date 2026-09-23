@@ -12,6 +12,9 @@ const editableNode: WorkflowCanvasNodeData = {
   editable: true,
   hasParent: true,
   hasChildren: false,
+  canInsertAfter: true,
+  isInsertionMode: false,
+  insertionLabel: 'Insert a step after Welcome message',
   icon: '➤',
   accentClass: 'border-l-emerald-400',
   iconClass: 'bg-emerald-50 text-emerald-600',
@@ -21,7 +24,7 @@ describe('WorkflowNodeCard', () => {
   it('opens an editable node with the keyboard', async () => {
     const user = userEvent.setup()
     const view = renderNode(editableNode)
-    const node = screen.getByRole('button', { name: /welcome message/i })
+    const node = screen.getByRole('button', { name: 'Welcome message. Say hello' })
 
     node.focus()
     await user.keyboard('{Enter}')
