@@ -41,6 +41,8 @@ Editable nodes open through route-addressable details drawers. Title and descrip
 
 Type-specific editors support ordered Send Message text and attachments, internal comments, and weekly Business Hours with timezone-aware schedules. Uploaded files are validated to 5 MB, represented as in-memory data URLs, and discarded on refresh with the rest of the editing session.
 
+Contextual insertion controls create steps between connected nodes or after terminal nodes. Business Hours insertion generates Success and Failure branches and continues an existing downstream path through Success. Completed drags synchronize node positions back into the cached graph, while workflow-wide readiness checks surface incomplete steps and invalid branching structures. Timezone options come from the browser's IANA catalogue with Asian regions prioritised.
+
 ## Accessibility and motion
 
 Interactive elements use semantic labels and visible focus indicators. Workflow nodes are keyboard-focusable from the first iteration. Motion uses short transitions and respects `prefers-reduced-motion`.

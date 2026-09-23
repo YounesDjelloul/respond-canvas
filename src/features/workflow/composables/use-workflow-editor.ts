@@ -26,6 +26,7 @@ export function useWorkflowEditor(
     openNode: selection.openNode,
     openCreation: creation.open,
     openCreationAfter: creation.openAfter,
+    applyGraph: workflow.applyGraph,
   })
   const details = useWorkflowNodeDetails({
     graph: workflow.graph,

@@ -6,7 +6,7 @@ import WorkflowInsertionEdge from './WorkflowInsertionEdge.vue'
 import WorkflowNodeCard from './WorkflowNodeCard.vue'
 
 const {
-  canvas: { nodes, edges, openNode, openCreationAfter },
+  canvas: { nodes, edges, openNode, openCreationAfter, updateNodePosition },
   creation: { isChoosingInsertion, cancel: cancelInsertion },
 } = useWorkflowEditorContext()
 </script>
@@ -26,6 +26,7 @@ const {
       fit-view-on-init
       class="h-full"
       @node-click="openNode($event.node.id)"
+      @node-drag-stop="updateNodePosition($event.node)"
     >
       <Background :gap="20" :size="1" color="#d9dde5" />
 

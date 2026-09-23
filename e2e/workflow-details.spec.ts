@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 test('opens, edits, and closes node details with the keyboard', async ({ page }) => {
   await page.goto('/')
 
+  await expect(page.getByText('Workflow ready')).toBeVisible()
   const welcomeNode = page.getByRole('button', { name: /^Welcome Message\./i })
   await welcomeNode.focus()
   await page.keyboard.press('Enter')

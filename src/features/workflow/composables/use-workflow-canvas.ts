@@ -6,6 +6,7 @@ import type {
   WorkflowInsertionPoint,
   WorkflowNode,
 } from '../domain'
+import { updateWorkflowNodePosition } from '../domain'
 import {
   workflowAccentPresentationFor,
   workflowNodePresentationFor,
@@ -19,6 +20,7 @@ interface WorkflowCanvasDependencies {
   openNode: (nodeId: string) => void
   openCreation: (point: WorkflowInsertionPoint) => void
   openCreationAfter: (nodeId: string) => void
+  applyGraph: (graph: WorkflowGraph) => void
 }
 
 export function useWorkflowCanvas({
@@ -28,6 +30,7 @@ export function useWorkflowCanvas({
   openNode,
   openCreation,
   openCreationAfter,
+  applyGraph,
 }: WorkflowCanvasDependencies) {
   const nodes = computed<WorkflowCanvasNode[]>(() => {
     const currentGraph = toValue(graph)
@@ -107,12 +110,27 @@ export function useWorkflowCanvas({
     })
   })
 
+  function updateNodePosition(node: Pick<WorkflowCanvasNode, 'id' | 'position'>) {
+    const currentGraph = toValue(graph)
+
+    if (!currentGraph) {
+      return
+    }
+
+    const result = updateWorkflowNodePosition(currentGraph, node.id, node.position)
+
+    if (result.ok) {
+      applyGraph(result.value)
+    }
+  }
+
   return {
     nodes,
     edges,
     openNode,
     openCreation,
     openCreationAfter,
+    updateNodePosition,
     isChoosingInsertion,
   }
 }

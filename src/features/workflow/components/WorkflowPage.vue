@@ -6,7 +6,14 @@ import NodeCreationDialog from './NodeCreationDialog.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
 
 const {
-  status: { errorMessage, isEmpty, isLoading },
+  status: {
+    errorMessage,
+    isEmpty,
+    isLoading,
+    readinessLabel,
+    readinessTitle,
+    readinessSeverity,
+  },
   creation: { isChoosingInsertion, buttonLabel, toggle: toggleInsertion },
 } = provideWorkflowEditor()
 </script>
@@ -28,12 +35,24 @@ const {
       </div>
 
       <div class="flex items-center gap-2">
-        <div
-          class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 sm:flex"
+        <span
+          :title="readinessTitle"
+          class="hidden items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex"
+          :class="
+            readinessSeverity === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-amber-200 bg-amber-50 text-amber-700'
+          "
         >
-          <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          Sample workflow
-        </div>
+          <span
+            class="size-1.5 rounded-full"
+            :class="
+              readinessSeverity === 'success' ? 'bg-emerald-500' : 'bg-amber-500'
+            "
+            aria-hidden="true"
+          />
+          {{ readinessLabel }}
+        </span>
         <Button
           :label="buttonLabel"
           :severity="isChoosingInsertion ? 'secondary' : undefined"

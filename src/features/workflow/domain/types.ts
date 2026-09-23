@@ -163,6 +163,7 @@ export type WorkflowMutationErrorCode =
   | 'node-not-found'
   | 'node-read-only'
   | 'node-kind-mismatch'
+  | 'invalid-node-position'
   | 'duplicate-node-id'
   | 'insertion-source-not-found'
   | 'insertion-target-not-found'
@@ -181,3 +182,13 @@ export type WorkflowMutationErrorCode =
   | 'timezone-required'
 
 export type WorkflowMutationError = DomainError<WorkflowMutationErrorCode>
+
+export type WorkflowReadinessErrorCode =
+  | WorkflowMutationErrorCode
+  | 'workflow-empty'
+  | 'workflow-trigger-count-invalid'
+  | 'workflow-root-count-invalid'
+  | 'business-connectors-invalid'
+  | 'outgoing-path-required'
+
+export type WorkflowReadinessError = DomainError<WorkflowReadinessErrorCode>

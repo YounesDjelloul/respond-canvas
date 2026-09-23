@@ -3,8 +3,10 @@ import {
   createWorkflowGraph,
   deleteWorkflowNode,
   insertWorkflowNode,
+  updateWorkflowNodePosition,
   updateWorkflowNode,
   validateWorkflowAttachment,
+  validateWorkflowReadiness,
 } from '../index'
 
 const payload = [
@@ -241,6 +243,116 @@ describe('workflow editing', () => {
     ])
   })
 
+  it('updates a dragged node position without mutating the source graph', () => {
+    const graph = validGraph()
+    const result = updateWorkflowNodePosition(graph, 'message', { x: 480, y: 320 })
+
+    expect(result.ok).toBe(true)
+
+    if (!result.ok) {
+      return
+    }
+
+    expect(result.value.nodes.find((node) => node.id === 'message')?.position).toEqual({
+      x: 480,
+      y: 320,
+    })
+    expect(graph.nodes.find((node) => node.id === 'message')?.position).not.toEqual({
+      x: 480,
+      y: 320,
+    })
+  })
+
+  it('reports incomplete node content in workflow readiness checks', () => {
+    const graph = readyGraph()
+    const readyResult = validateWorkflowReadiness(graph)
+    const insertionResult = insertWorkflowNode(graph, {
+      id: 'empty-message',
+      insertionPoint: { sourceId: 'message', targetId: null },
+      kind: 'send-message',
+      title: 'Follow up',
+      description: 'Send another message',
+    })
+
+    expect(readyResult.ok).toBe(true)
+    expect(insertionResult.ok).toBe(true)
+
+    if (!insertionResult.ok) {
+      return
+    }
+
+    expect(validateWorkflowReadiness(insertionResult.value)).toMatchObject({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: 'message-content-required',
+          path: ['nodes', 'empty-message', 'config', 'parts'],
+        }),
+      ],
+    })
+  })
+
+  it('requires every generated Business Hours branch to continue', () => {
+    const insertionResult = insertWorkflowNode(readyGraph(), {
+      id: 'support-hours',
+      successConnectorId: 'support-success',
+      failureConnectorId: 'support-failure',
+      insertionPoint: { sourceId: 'root', targetId: 'message' },
+      kind: 'business-hours',
+      title: 'Support hours',
+      description: 'Route by team availability',
+      timezone: 'UTC',
+    })
+
+    expect(insertionResult.ok).toBe(true)
+
+    if (!insertionResult.ok) {
+      return
+    }
+
+    expect(validateWorkflowReadiness(insertionResult.value)).toEqual({
+      ok: false,
+      errors: [
+        {
+          code: 'outgoing-path-required',
+          message: 'Failure requires at least one workflow step',
+          path: ['nodes', 'support-failure'],
+        },
+      ],
+    })
+  })
+
+  it('requires every non-terminal node kind to have an outgoing path', () => {
+    const graphResult = createWorkflowGraph([
+      {
+        id: 'root',
+        parentId: -1,
+        type: 'trigger',
+        data: {
+          type: 'conversationOpened',
+          oncePerContact: false,
+        },
+      },
+    ])
+
+    expect(graphResult.ok).toBe(true)
+
+    if (!graphResult.ok) {
+      return
+    }
+
+    expect(validateWorkflowReadiness(graphResult.value)).toMatchObject({
+      ok: false,
+      errors: [
+        {
+          code: 'outgoing-path-required',
+          message: 'Conversation opened requires at least one workflow step',
+          path: ['nodes', 'root'],
+        },
+      ],
+    })
+  })
+
   it('inserts a node into an existing edge without mutating the source graph', () => {
     const graph = validGraph()
     const result = insertWorkflowNode(graph, {
@@ -364,6 +476,35 @@ function validGraph() {
 
   if (!result.ok) {
     throw new Error('The test fixture must produce a valid graph')
+  }
+
+  return result.value
+}
+
+function readyGraph() {
+  const result = createWorkflowGraph([
+    {
+      id: 'root',
+      parentId: -1,
+      type: 'trigger',
+      data: {
+        type: 'conversationOpened',
+        oncePerContact: false,
+      },
+    },
+    {
+      id: 'message',
+      parentId: 'root',
+      type: 'sendMessage',
+      name: 'Welcome',
+      data: {
+        payload: [{ type: 'text', text: 'Hello' }],
+      },
+    },
+  ])
+
+  if (!result.ok) {
+    throw new Error('The readiness fixture must produce a valid graph')
   }
 
   return result.value

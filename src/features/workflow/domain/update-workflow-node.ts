@@ -11,6 +11,7 @@ import {
   validateWorkflowMessageFields,
   validateWorkflowNodeFields,
 } from './validate-workflow-fields'
+import { validateBusinessHourRules } from './validate-business-hour-rules'
 
 export function updateWorkflowNode(
   graph: WorkflowGraph,
@@ -85,7 +86,7 @@ function validateAndNormalizeUpdateInput(
 
   if (input.kind === 'business-hours') {
     const fieldResult = validateWorkflowBusinessHoursFields(input)
-    const businessRuleErrors = validateBusinessHourRules(input)
+    const businessRuleErrors = validateBusinessHourRules(input.hours)
     const errors = [
       ...detailErrors,
       ...(fieldResult.ok ? [] : fieldResult.errors),
@@ -124,40 +125,6 @@ function validateAndNormalizeUpdateInput(
             ...detailsResult.value,
           },
   }
-}
-
-function validateBusinessHourRules(
-  input: Extract<UpdateWorkflowNodeInput, { kind: 'business-hours' }>,
-): WorkflowMutationError[] {
-  const errors: WorkflowMutationError[] = []
-
-  const seenDays = new Set<string>()
-
-  input.hours.forEach((hours, index) => {
-    if (seenDays.has(hours.day)) {
-      errors.push({
-        code: 'business-day-duplicate',
-        message: `${hours.day} is configured more than once`,
-        path: ['config', 'hours', index, 'day'],
-      })
-    }
-
-    seenDays.add(hours.day)
-
-    if (
-      isComparableTime(hours.startTime) &&
-      isComparableTime(hours.endTime) &&
-      hours.startTime >= hours.endTime
-    ) {
-      errors.push({
-        code: 'business-time-range-invalid',
-        message: 'Opening time must be before closing time',
-        path: ['config', 'hours', index],
-      })
-    }
-  })
-
-  return errors
 }
 
 function updateNodeContent(
@@ -204,10 +171,6 @@ function updateNodeContent(
     title: input.title,
     description: input.description,
   }
-}
-
-function isComparableTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
 }
 
 function failure(

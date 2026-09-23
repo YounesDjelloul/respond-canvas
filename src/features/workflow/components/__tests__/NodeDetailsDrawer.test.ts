@@ -134,6 +134,9 @@ function createEditor(overrides: {
       isLoading: ref(false),
       errorMessage: computed(() => null),
       isEmpty: computed(() => false),
+      readinessLabel: computed(() => 'Workflow ready'),
+      readinessTitle: computed(() => 'All workflow checks passed'),
+      readinessSeverity: computed(() => 'success'),
     },
     canvas: {
       nodes: computed(() => []),
@@ -141,6 +144,7 @@ function createEditor(overrides: {
       openNode: vi.fn(),
       openCreation: vi.fn(),
       openCreationAfter: vi.fn(),
+      updateNodePosition: vi.fn(),
       isChoosingInsertion: computed(() => false),
     },
     creation: {

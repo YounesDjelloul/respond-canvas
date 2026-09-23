@@ -65,6 +65,9 @@ function createEditor(state: {
       isLoading: ref(state.isLoading),
       errorMessage: computed(() => state.errorMessage),
       isEmpty: computed(() => state.isEmpty),
+      readinessLabel: computed(() => 'Workflow ready'),
+      readinessTitle: computed(() => 'All workflow checks passed'),
+      readinessSeverity: computed(() => 'success'),
     },
     canvas: {
       nodes: computed(() => []),
@@ -72,6 +75,7 @@ function createEditor(state: {
       openNode: vi.fn(),
       openCreation: vi.fn(),
       openCreationAfter: vi.fn(),
+      updateNodePosition: vi.fn(),
       isChoosingInsertion: computed(() => false),
     },
     creation: {

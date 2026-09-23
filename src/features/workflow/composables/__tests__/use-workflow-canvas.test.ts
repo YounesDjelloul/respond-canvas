@@ -66,6 +66,7 @@ describe('useWorkflowEditor', () => {
     })
 
     expect(model.status.errorMessage.value).toBeNull()
+    expect(model.status.readinessLabel.value).toBe('Workflow ready')
     expect(model.canvas.nodes.value).toEqual([
       expect.objectContaining({
         id: '1',
@@ -177,6 +178,10 @@ describe('useWorkflowEditor', () => {
       expect(model.details.isOpen.value).toBe(true)
     })
 
+    model.canvas.updateNodePosition({
+      id: 'message',
+      position: { x: 480, y: 320 },
+    })
     model.details.updateTitle('Updated welcome')
     model.details.updateDescription('Updated description')
     model.details.sendMessage.updateText(0, 'Updated body')
@@ -191,6 +196,7 @@ describe('useWorkflowEditor', () => {
         description: 'Updated description',
       })
       expect(model.details.selectedNode.value).toMatchObject({
+        position: { x: 480, y: 320 },
         config: {
           parts: [{ type: 'text', value: 'Updated body' }],
         },
@@ -306,6 +312,7 @@ describe('useWorkflowEditor', () => {
     const insertedNode = model.details.selectedNode.value
     expect(insertedNode?.kind).toBe('send-message')
     expect(model.creation.isOpen.value).toBe(false)
+    expect(model.status.readinessLabel.value).toBe('1 issue')
     expect(router.currentRoute.value.fullPath).toBe(`/nodes/${insertedNode?.id}`)
     expect(model.canvas.edges.value).toEqual(
       expect.arrayContaining([
@@ -354,6 +361,10 @@ describe('useWorkflowEditor', () => {
         (edge) => edge.source === businessHoursNode.id && edge.target === successId,
       )?.type,
     ).toBe('smoothstep')
+    expect(model.status.readinessLabel.value).toBe('1 issue')
+    expect(model.status.readinessTitle.value).toBe(
+      'Failure requires at least one workflow step',
+    )
   })
 
   it('keeps creation open and presents validation failures', async () => {
