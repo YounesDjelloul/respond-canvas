@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
+import { Button } from '@/components/ui/button'
 import { provideWorkflowEditor } from '../composables/workflow-editor-context'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
 import NodeCreationDialog from './NodeCreationDialog.vue'
@@ -54,12 +54,12 @@ const {
           {{ readinessLabel }}
         </span>
         <Button
-          :label="buttonLabel"
-          :severity="isChoosingInsertion ? 'secondary' : undefined"
-          size="small"
-          :outlined="isChoosingInsertion"
+          :variant="isChoosingInsertion ? 'outline' : 'default'"
+          size="sm"
           @click="toggleInsertion"
-        />
+        >
+          {{ buttonLabel }}
+        </Button>
       </div>
     </header>
 

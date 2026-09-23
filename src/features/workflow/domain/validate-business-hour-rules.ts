@@ -11,7 +11,7 @@ export function validateBusinessHourRules(
       errors.push({
         code: 'business-day-duplicate',
         message: `${businessHour.day} is configured more than once`,
-        path: ['config', 'hours', index, 'day'],
+        path: ['config', 'hours', index],
       })
     }
 

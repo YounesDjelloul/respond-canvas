@@ -46,4 +46,5 @@ export interface WorkflowMessageDraftItem {
   value: string
   name: string
   isImage: boolean
+  error: string | null
 }

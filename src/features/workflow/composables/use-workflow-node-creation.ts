@@ -9,6 +9,11 @@ import type { MaybeRefOrGetter } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
 import { storeToRefs } from 'pinia'
 import {
+  errorMessageAt,
+  errorMessageOutside,
+  withoutErrorsUnder,
+} from '@/features/shared/domain'
+import {
   insertWorkflowNode,
   type CreatableWorkflowNodeKind,
   type InsertWorkflowNodeInput,
@@ -45,19 +50,10 @@ export function useWorkflowNodeCreation({
     () => mode.value === 'creating' && insertionPoint.value !== null,
   )
   const context = computed(() => createInsertionContext(toValue(graph), insertionPoint.value))
-  const titleError = computed(
-    () => errors.value.find((error) => error.path?.[0] === 'title')?.message ?? null,
-  )
-  const descriptionError = computed(
-    () =>
-      errors.value.find((error) => error.path?.[0] === 'description')?.message ??
-      null,
-  )
-  const errorMessage = computed(
-    () =>
-      errors.value.find(
-        (error) => error.path?.[0] !== 'title' && error.path?.[0] !== 'description',
-      )?.message ?? null,
+  const titleError = computed(() => errorMessageAt(errors.value, ['title']))
+  const descriptionError = computed(() => errorMessageAt(errors.value, ['description']))
+  const errorMessage = computed(() =>
+    errorMessageOutside(errors.value, ['title', 'description']),
   )
   const showsBusinessHoursNote = computed(() => kind.value === 'business-hours')
   const buttonLabel = computed(() =>
@@ -119,14 +115,12 @@ export function useWorkflowNodeCreation({
 
   function updateTitle(value: string | undefined) {
     title.value = value ?? ''
-    errors.value = errors.value.filter((error) => error.path?.[0] !== 'title')
+    errors.value = withoutErrorsUnder(errors.value, ['title'])
   }
 
   function updateDescription(value: string | undefined) {
     description.value = value ?? ''
-    errors.value = errors.value.filter(
-      (error) => error.path?.[0] !== 'description',
-    )
+    errors.value = withoutErrorsUnder(errors.value, ['description'])
   }
 
   function submit() {

@@ -154,6 +154,18 @@ describe('workflow editing', () => {
       timezone: 'UTC',
     })
 
+    const emptyTextResult = updateWorkflowNode(validGraph(), {
+      id: 'message',
+      title: 'Welcome',
+      description: 'Welcome',
+      kind: 'send-message',
+      parts: [{ type: 'text', value: ' ' }],
+    })
+
+    expect(emptyTextResult).toMatchObject({
+      ok: false,
+      errors: [{ code: 'message-text-required', path: ['config', 'parts', 0] }],
+    })
     expect(emptyMessageResult).toMatchObject({
       ok: false,
       errors: [{ code: 'message-content-required' }],
@@ -182,7 +194,10 @@ describe('workflow editing', () => {
       errors: expect.arrayContaining([
         expect.objectContaining({ code: 'business-time-invalid' }),
         expect.objectContaining({ code: 'timezone-required' }),
-        expect.objectContaining({ code: 'business-day-duplicate' }),
+        expect.objectContaining({
+          code: 'business-day-duplicate',
+          path: ['config', 'hours', 1],
+        }),
       ]),
     })
   })

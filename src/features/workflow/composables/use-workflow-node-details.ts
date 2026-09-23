@@ -1,6 +1,12 @@
-import { computed, ref, toValue, watch } from 'vue'
+import { computed, nextTick, ref, toValue, watch } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
+import {
+  errorMessageAt,
+  errorMessageOutside,
+  errorMessagesAt,
+  withoutErrorsUnder,
+} from '@/features/shared/domain'
 import {
   deleteWorkflowNode,
   updateWorkflowNode,
@@ -33,6 +39,8 @@ export function useWorkflowNodeDetails({
   const comment = ref('')
   const operationErrors = ref<readonly WorkflowMutationError[]>([])
   const isDeleteConfirming = ref(false)
+  const editingField = ref<'title' | 'description' | null>(null)
+  const fieldValueBeforeEditing = ref('')
   const sendMessageDraft = useSendMessageDraft(clearContentErrors)
   const businessHoursDraft = useBusinessHoursDraft(clearContentErrors)
   const currentNode = computed(() => toValue(selectedNode))
@@ -46,26 +54,32 @@ export function useWorkflowNodeDetails({
       deleteWorkflowNode(requireGraph(toValue(graph)), nodeId),
     onSuccess: applyMutationResult,
   })
-  const titleError = computed(
-    () =>
-      operationErrors.value.find((error) => error.path?.[0] === 'title')?.message ??
-      null,
+  const titleError = computed(() => errorMessageAt(operationErrors.value, ['title']))
+  const descriptionError = computed(() =>
+    errorMessageAt(operationErrors.value, ['description']),
   )
-  const descriptionError = computed(
-    () =>
-      operationErrors.value.find((error) => error.path?.[0] === 'description')
-        ?.message ?? null,
+  const errorMessage = computed(() =>
+    errorMessageOutside(operationErrors.value, ['title', 'description', 'config']),
   )
-  const errorMessage = computed(
-    () =>
-      operationErrors.value.find(
-        (error) => error.path?.[0] !== 'title' && error.path?.[0] !== 'description',
-      )?.message ?? null,
+  const messageItems = computed(() =>
+    sendMessageDraft.items.value.map((item) => ({
+      ...item,
+      error: errorMessageAt(operationErrors.value, ['config', 'parts', item.index]),
+    })),
   )
-  const contentErrorMessages = computed(() =>
-    operationErrors.value
-      .filter((error) => error.path?.[0] === 'config')
-      .map((error) => error.message),
+  const messageContentError = computed(() =>
+    errorMessageAt(operationErrors.value, ['config', 'parts']),
+  )
+  const businessHoursError = computed(() =>
+    errorMessageAt(operationErrors.value, ['config', 'hours']),
+  )
+  const businessHourErrorMessages = computed(() =>
+    businessHoursDraft.hours.value.map((_, index) =>
+      errorMessagesAt(operationErrors.value, ['config', 'hours', index]),
+    ),
+  )
+  const timezoneError = computed(() =>
+    errorMessageAt(operationErrors.value, ['config', 'timezone']),
   )
   const isDirty = computed(() => {
     const node = currentNode.value
@@ -79,12 +93,18 @@ export function useWorkflowNodeDetails({
         businessHoursDraft.hasChanges(node))
     )
   })
-  const heading = computed(() => currentNode.value?.title ?? 'Node details')
   const typeLabel = computed(() =>
     currentNode.value
       ? workflowNodePresentationFor(currentNode.value.kind).label
       : '',
   )
+  const deleteButtonLabel = computed(() => {
+    if (deleteMutation.isPending.value) {
+      return 'Deleting…'
+    }
+
+    return isDeleteConfirming.value ? 'Confirm delete' : 'Delete'
+  })
 
   watch(
     currentNode,
@@ -96,6 +116,8 @@ export function useWorkflowNodeDetails({
       businessHoursDraft.reset(node)
       operationErrors.value = []
       isDeleteConfirming.value = false
+      editingField.value = null
+      fieldValueBeforeEditing.value = ''
     },
     { immediate: true },
   )
@@ -108,6 +130,64 @@ export function useWorkflowNodeDetails({
   function updateDescription(value: string) {
     description.value = value
     clearFieldError('description')
+  }
+
+  async function startEditing(field: 'title' | 'description') {
+    fieldValueBeforeEditing.value =
+      field === 'title' ? title.value : description.value
+    editingField.value = field
+    await nextTick()
+
+    const input = document.getElementById(
+      field === 'title' ? 'node-title' : 'node-description',
+    )
+
+    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+      input.focus()
+      input.setSelectionRange(input.value.length, input.value.length)
+    }
+  }
+
+  function finishEditing(field: 'title' | 'description') {
+    if (editingField.value === field) {
+      editingField.value = null
+    }
+  }
+
+  function cancelEditing(field: 'title' | 'description') {
+    if (editingField.value !== field) {
+      return
+    }
+
+    if (field === 'title') {
+      updateTitle(fieldValueBeforeEditing.value)
+    } else {
+      updateDescription(fieldValueBeforeEditing.value)
+    }
+
+    editingField.value = null
+  }
+
+  function handleDescriptionKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      cancelEditing('description')
+      return
+    }
+
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      finishEditing('description')
+    }
+  }
+
+  function focusDetailsPanel(event: Event) {
+    event.preventDefault()
+
+    if (event.target instanceof HTMLElement) {
+      event.target.focus()
+    }
   }
 
   function updateComment(value: string) {
@@ -146,6 +226,15 @@ export function useWorkflowNodeDetails({
     isDeleteConfirming.value = false
   }
 
+  function handleDeleteAction() {
+    if (isDeleteConfirming.value) {
+      confirmDelete()
+      return
+    }
+
+    requestDelete()
+  }
+
   function confirmDelete() {
     if (!currentNode.value) {
       return
@@ -177,39 +266,42 @@ export function useWorkflowNodeDetails({
   }
 
   function clearFieldError(field: 'title' | 'description') {
-    operationErrors.value = operationErrors.value.filter(
-      (error) => error.path?.[0] !== field,
-    )
+    operationErrors.value = withoutErrorsUnder(operationErrors.value, [field])
   }
 
   function clearContentErrors() {
-    operationErrors.value = operationErrors.value.filter(
-      (error) => error.path?.[0] !== 'config',
-    )
+    operationErrors.value = withoutErrorsUnder(operationErrors.value, ['config'])
   }
 
   return {
     selectedNode: currentNode,
     isOpen: computed(() => currentNode.value !== null),
-    heading,
     typeLabel,
     title,
     description,
     titleError,
     descriptionError,
     errorMessage,
-    contentErrorMessages,
+    isEditingTitle: computed(() => editingField.value === 'title'),
+    isEditingDescription: computed(() => editingField.value === 'description'),
     isDirty,
     isSaving: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isDeleteConfirming,
+    deleteButtonLabel,
     close: closeNode,
     setVisibility,
+    focusDetailsPanel,
     updateTitle,
     updateDescription,
+    startEditing,
+    finishEditing,
+    cancelEditing,
+    handleDescriptionKeydown,
     sendMessage: {
       isVisible: computed(() => currentNode.value?.kind === 'send-message'),
-      items: sendMessageDraft.items,
+      items: messageItems,
+      contentError: messageContentError,
       attachmentError: sendMessageDraft.attachmentError,
       addText: sendMessageDraft.addText,
       updateText: sendMessageDraft.updateText,
@@ -225,7 +317,10 @@ export function useWorkflowNodeDetails({
     businessHours: {
       isVisible: computed(() => currentNode.value?.kind === 'business-hours'),
       hours: businessHoursDraft.hours,
+      hoursError: businessHoursError,
+      hourErrorMessages: businessHourErrorMessages,
       timezone: businessHoursDraft.timezone,
+      timezoneError,
       timezoneOptions: businessHoursDraft.timezoneOptions,
       updateHour: businessHoursDraft.updateHour,
       updateTimezone: businessHoursDraft.updateTimezone,
@@ -234,6 +329,7 @@ export function useWorkflowNodeDetails({
     requestDelete,
     cancelDelete,
     confirmDelete,
+    handleDeleteAction,
   }
 }
 

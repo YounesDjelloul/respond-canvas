@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import Select from 'primevue/select'
+import { CheckIcon } from '@lucide/vue'
+import {
+  Combobox,
+  ComboboxAnchor,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxItemIndicator,
+  ComboboxList,
+} from '@/components/ui/combobox'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 
 const {
   details: {
     businessHours: {
       hours,
+      hoursError,
+      hourErrorMessages,
       timezone,
+      timezoneError,
       timezoneOptions,
       updateHour,
       updateTimezone,
@@ -30,55 +43,114 @@ const {
       <div
         v-for="(dayHours, index) in hours"
         :key="`${dayHours.day}-${index}`"
-        class="grid grid-cols-[2.5rem_1fr_auto_1fr] items-center gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0"
+        class="border-b border-slate-100 last:border-b-0"
       >
-        <span class="text-[11px] font-semibold capitalize text-slate-600">
-          {{ dayHours.day }}
-        </span>
+        <div class="grid grid-cols-[2.5rem_1fr_auto_1fr] items-center gap-2 px-3 py-2.5">
+          <span class="text-[11px] font-semibold capitalize text-slate-600">
+            {{ dayHours.day }}
+          </span>
 
-        <label :for="`start-time-${index}`" class="sr-only">
-          {{ dayHours.day }} opening time
-        </label>
-        <input
-          :id="`start-time-${index}`"
-          :value="dayHours.startTime"
-          type="time"
-          class="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150 hover:border-slate-300 focus:border-violet-400"
-          @input="
-            updateHour(index, 'startTime', ($event.target as HTMLInputElement).value)
-          "
-        />
+          <label :for="`start-time-${index}`" class="sr-only">
+            {{ dayHours.day }} opening time
+          </label>
+          <input
+            :id="`start-time-${index}`"
+            :value="dayHours.startTime"
+            type="time"
+            :aria-invalid="hourErrorMessages[index]?.length > 0"
+            :aria-describedby="
+              hourErrorMessages[index]?.length ? `business-hour-error-${index}` : undefined
+            "
+            class="min-w-0 rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150"
+            :class="
+              hourErrorMessages[index]?.length
+                ? 'border-red-300 focus:border-red-400'
+                : 'border-slate-200 hover:border-slate-300 focus:border-violet-400'
+            "
+            @input="
+              updateHour(index, 'startTime', ($event.target as HTMLInputElement).value)
+            "
+          />
 
-        <span class="text-[10px] text-slate-400">to</span>
+          <span class="text-[10px] text-slate-400">to</span>
 
-        <label :for="`end-time-${index}`" class="sr-only">
-          {{ dayHours.day }} closing time
-        </label>
-        <input
-          :id="`end-time-${index}`"
-          :value="dayHours.endTime"
-          type="time"
-          class="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150 hover:border-slate-300 focus:border-violet-400"
-          @input="updateHour(index, 'endTime', ($event.target as HTMLInputElement).value)"
-        />
+          <label :for="`end-time-${index}`" class="sr-only">
+            {{ dayHours.day }} closing time
+          </label>
+          <input
+            :id="`end-time-${index}`"
+            :value="dayHours.endTime"
+            type="time"
+            :aria-invalid="hourErrorMessages[index]?.length > 0"
+            :aria-describedby="
+              hourErrorMessages[index]?.length ? `business-hour-error-${index}` : undefined
+            "
+            class="min-w-0 rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150"
+            :class="
+              hourErrorMessages[index]?.length
+                ? 'border-red-300 focus:border-red-400'
+                : 'border-slate-200 hover:border-slate-300 focus:border-violet-400'
+            "
+            @input="updateHour(index, 'endTime', ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+        <ul
+          v-if="hourErrorMessages[index]?.length"
+          :id="`business-hour-error-${index}`"
+          role="alert"
+          class="space-y-0.5 px-3 pb-2.5 text-[11px] text-red-600"
+        >
+          <li v-for="message in hourErrorMessages[index]" :key="message">
+            {{ message }}
+          </li>
+        </ul>
       </div>
     </div>
+    <p v-if="hoursError" role="alert" class="text-[11px] text-red-600">
+      {{ hoursError }}
+    </p>
 
     <div class="space-y-1.5">
       <label for="business-timezone" class="block text-xs font-medium text-slate-700">
         Timezone
       </label>
-      <Select
-        input-id="business-timezone"
+      <Combobox
         :model-value="timezone"
-        :options="timezoneOptions"
-        :virtual-scroller-options="{ itemSize: 38 }"
-        :pt="{ pcFilter: { root: { 'aria-label': 'Filter timezones' } } }"
-        aria-label="Timezone"
-        filter
-        fluid
-        @update:model-value="updateTimezone"
-      />
+        @update:model-value="updateTimezone(String($event ?? ''))"
+      >
+        <ComboboxAnchor class="w-full">
+          <ComboboxInput
+            id="business-timezone"
+            aria-label="Timezone"
+            placeholder="Search timezones"
+            :aria-invalid="Boolean(timezoneError)"
+            :aria-describedby="timezoneError ? 'business-timezone-error' : undefined"
+          />
+        </ComboboxAnchor>
+        <ComboboxList>
+          <ComboboxEmpty>No timezone found.</ComboboxEmpty>
+          <ComboboxGroup>
+            <ComboboxItem
+              v-for="option in timezoneOptions"
+              :key="option"
+              :value="option"
+            >
+              {{ option }}
+              <ComboboxItemIndicator>
+                <CheckIcon class="ml-auto size-4" />
+              </ComboboxItemIndicator>
+            </ComboboxItem>
+          </ComboboxGroup>
+        </ComboboxList>
+      </Combobox>
+      <p
+        v-if="timezoneError"
+        id="business-timezone-error"
+        role="alert"
+        class="text-[11px] text-red-600"
+      >
+        {{ timezoneError }}
+      </p>
     </div>
   </section>
 </template>

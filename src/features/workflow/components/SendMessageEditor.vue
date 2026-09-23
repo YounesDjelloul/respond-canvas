@@ -5,6 +5,7 @@ const {
   details: {
     sendMessage: {
       items,
+      contentError,
       attachmentError,
       addText,
       updateText,
@@ -50,13 +51,25 @@ const {
 
     <div
       v-if="items.length === 0"
-      class="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500"
+      class="rounded-xl border border-dashed px-4 py-6 text-center text-xs"
+      :class="
+        contentError
+          ? 'border-red-200 bg-red-50/50 text-red-700'
+          : 'border-slate-200 text-slate-500'
+      "
     >
       Add text or an attachment to build this message.
+      <p v-if="contentError" role="alert" class="mt-1 font-medium">
+        {{ contentError }}
+      </p>
     </div>
 
     <div v-for="item in items" :key="item.index" class="group relative">
-      <div v-if="item.type === 'text'" class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <div
+        v-if="item.type === 'text'"
+        class="rounded-xl border bg-slate-50/60 p-3"
+        :class="item.error ? 'border-red-200' : 'border-slate-200'"
+      >
         <label
           :for="`message-text-${item.index}`"
           class="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500"
@@ -67,32 +80,55 @@ const {
           :id="`message-text-${item.index}`"
           :value="item.value"
           rows="3"
-          class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-900 shadow-sm transition-colors duration-150 hover:border-slate-300 focus:border-violet-400"
+          :aria-invalid="Boolean(item.error)"
+          :aria-describedby="item.error ? `message-text-error-${item.index}` : undefined"
+          class="w-full resize-none rounded-lg border bg-white px-3 py-2 text-sm leading-5 text-slate-900 shadow-sm transition-colors duration-150"
+          :class="
+            item.error
+              ? 'border-red-300 focus:border-red-400'
+              : 'border-slate-200 hover:border-slate-300 focus:border-violet-400'
+          "
           @input="updateText(item.index, ($event.target as HTMLTextAreaElement).value)"
         />
+        <p
+          v-if="item.error"
+          :id="`message-text-error-${item.index}`"
+          role="alert"
+          class="mt-1.5 text-[11px] text-red-600"
+        >
+          {{ item.error }}
+        </p>
       </div>
 
       <div
         v-else
-        class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3"
+        class="rounded-xl border bg-slate-50/60 p-3"
+        :class="item.error ? 'border-red-200' : 'border-slate-200'"
       >
-        <img
-          v-if="item.isImage"
-          :src="item.value"
-          :alt="item.name"
-          class="size-14 rounded-lg border border-slate-200 bg-white object-cover"
-        />
-        <span
-          v-else
-          class="grid size-14 place-items-center rounded-lg border border-slate-200 bg-white text-lg text-slate-400"
-          aria-hidden="true"
-        >
-          ↗
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-xs font-medium text-slate-800">{{ item.name }}</p>
-          <p class="mt-1 text-[10px] uppercase tracking-wide text-slate-400">Attachment</p>
+        <div class="flex items-center gap-3">
+          <img
+            v-if="item.isImage"
+            :src="item.value"
+            :alt="item.name"
+            class="size-14 rounded-lg border border-slate-200 bg-white object-cover"
+          />
+          <span
+            v-else
+            class="grid size-14 place-items-center rounded-lg border border-slate-200 bg-white text-lg text-slate-400"
+            aria-hidden="true"
+          >
+            ↗
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-xs font-medium text-slate-800">{{ item.name }}</p>
+            <p class="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+              Attachment
+            </p>
+          </div>
         </div>
+        <p v-if="item.error" role="alert" class="mt-1.5 text-[11px] text-red-600">
+          {{ item.error }}
+        </p>
       </div>
 
       <button

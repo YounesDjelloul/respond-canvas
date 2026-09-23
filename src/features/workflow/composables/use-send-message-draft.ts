@@ -19,6 +19,7 @@ export function useSendMessageDraft(clearErrors: () => void) {
       isImage:
         part.type === 'attachment' &&
         (part.mimeType?.startsWith('image/') === true || isImageUrl(part.value)),
+      error: null,
     })),
   )
 

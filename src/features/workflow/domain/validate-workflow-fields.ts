@@ -102,7 +102,7 @@ export function validateWorkflowMessageFields(
         path:
           partIndex === null
             ? ['config', 'parts']
-            : ['config', 'parts', partIndex, 'value'],
+            : ['config', 'parts', partIndex],
       }
     }),
   }

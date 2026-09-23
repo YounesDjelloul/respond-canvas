@@ -204,6 +204,137 @@ describe('useWorkflowEditor', () => {
     })
   })
 
+  it('owns inline editing state and restores cancelled field changes', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    await model.details.startEditing('title')
+    expect(model.details.isEditingTitle.value).toBe(true)
+
+    model.details.updateTitle('Draft greeting')
+    model.details.cancelEditing('title')
+
+    expect(model.details.title.value).toBe('Welcome')
+    expect(model.details.isEditingTitle.value).toBe(false)
+
+    await model.details.startEditing('description')
+    model.details.updateDescription('Updated description')
+    model.details.finishEditing('description')
+
+    expect(model.details.description.value).toBe('Updated description')
+    expect(model.details.isEditingDescription.value).toBe(false)
+  })
+
+  it('focuses the inline field with the caret after its existing text', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+    const titleField = document.createElement('input')
+    titleField.id = 'node-title'
+    titleField.value = 'Welcome'
+    document.body.append(titleField)
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+    await model.details.startEditing('title')
+
+    expect(document.activeElement).toBe(titleField)
+    expect(titleField.selectionStart).toBe('Welcome'.length)
+    expect(titleField.selectionEnd).toBe('Welcome'.length)
+    titleField.remove()
+  })
+
+  it('focuses the details panel instead of its first control when opened', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+    const panel = document.createElement('div')
+    panel.tabIndex = -1
+    document.body.append(panel)
+    const openAutoFocus = new Event('open-auto-focus', { cancelable: true })
+    panel.addEventListener('open-auto-focus', model.details.focusDetailsPanel)
+
+    panel.dispatchEvent(openAutoFocus)
+
+    expect(openAutoFocus.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(panel)
+    panel.remove()
+  })
+
+  it('projects validation failures onto their exact editor fields', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    model.details.sendMessage.updateText(0, ' ')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.sendMessage.items.value[0]?.error).toBe(
+        'Message text cannot be empty',
+      )
+    })
+    expect(model.details.errorMessage.value).toBeNull()
+
+    model.details.updateTitle(' ')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.titleError.value).toBe('Title is required')
+    })
+    expect(model.details.sendMessage.items.value[0]?.error).toBe(
+      'Message text cannot be empty',
+    )
+
+    model.details.updateTitle('Welcome')
+
+    expect(model.details.titleError.value).toBeNull()
+    expect(model.details.sendMessage.items.value[0]?.error).toBe(
+      'Message text cannot be empty',
+    )
+
+    model.details.sendMessage.removePart(0)
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.sendMessage.contentError.value).toBe(
+        'Add at least one message or attachment',
+      )
+    })
+
+    await router.push('/nodes/hours')
+    await waitFor(() => {
+      expect(model.details.businessHours.isVisible.value).toBe(true)
+    })
+
+    model.details.businessHours.updateHour(0, 'startTime', '18:00')
+    model.details.businessHours.updateTimezone('')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.businessHours.hourErrorMessages.value[0]).toContain(
+        'Opening time must be before closing time',
+      )
+      expect(model.details.businessHours.timezoneError.value).toBe(
+        'Timezone is required',
+      )
+    })
+  })
+
   it('deletes the selected node and closes its route', async () => {
     const repository: WorkflowRepository = {
       getWorkflow: async () => validPayload,
@@ -266,7 +397,7 @@ describe('useWorkflowEditor', () => {
     model.details.save()
 
     await waitFor(() => {
-      expect(model.details.contentErrorMessages.value).toContain(
+      expect(model.details.businessHours.hourErrorMessages.value[0]).toContain(
         'Opening time must be before closing time',
       )
     })
@@ -385,7 +516,13 @@ describe('useWorkflowEditor', () => {
     })
 
     expect(model.creation.descriptionError.value).toBe('Description is required')
+    expect(model.creation.errorMessage.value).toBeNull()
     expect(model.creation.isOpen.value).toBe(true)
+
+    model.creation.updateTitle('Escalation note')
+
+    expect(model.creation.titleError.value).toBeNull()
+    expect(model.creation.descriptionError.value).toBe('Description is required')
   })
 })
 

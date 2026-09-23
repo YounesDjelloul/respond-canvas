@@ -16,6 +16,9 @@ describe('NodeDetailsDrawer', () => {
     expect(screen.getByRole('dialog')).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'Welcome message' })).not.toBeNull()
 
+    await user.click(
+      screen.getByRole('button', { name: 'Edit title: Welcome message' }),
+    )
     const title = screen.getByLabelText('Title')
     await user.clear(title)
     await user.type(title, 'Greeting')
@@ -30,9 +33,9 @@ describe('NodeDetailsDrawer', () => {
     const details = renderDrawer({ isDeleteConfirming: true })
 
     expect(screen.getByText(/every node connected after it/i)).not.toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Delete node' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
 
-    expect(details.confirmDelete).toHaveBeenCalledOnce()
+    expect(details.handleDeleteAction).toHaveBeenCalledOnce()
   })
 
   it('edits message text and forwards attachment uploads', async () => {
@@ -46,6 +49,7 @@ describe('NodeDetailsDrawer', () => {
         value: 'Hello',
         name: '',
         isImage: false,
+        error: null,
       },
     ])
     renderEditor(editor)
@@ -85,7 +89,13 @@ describe('NodeDetailsDrawer', () => {
     renderEditor(businessEditor)
 
     await fireEvent.update(screen.getByLabelText('mon opening time'), '08:00')
-    await user.selectOptions(screen.getByLabelText('Timezone'), 'Asia/Singapore')
+    const timezone = screen.getByLabelText('Timezone')
+    await user.click(timezone)
+    await user.clear(timezone)
+    await user.type(timezone, 'Asia/Singapore')
+    await user.click(
+      await screen.findByRole('option', { name: 'Asia/Singapore' }),
+    )
 
     expect(businessEditor.details.businessHours.updateHour).toHaveBeenCalledWith(
       0,
@@ -111,9 +121,24 @@ function renderEditor(editor: WorkflowEditorController) {
   render(NodeDetailsDrawer, {
     global: {
       stubs: {
-        Drawer: {
-          props: ['visible'],
-          template: '<aside v-if="visible" role="dialog"><slot /></aside>',
+        Sheet: {
+          props: ['open'],
+          template: '<template v-if="open"><slot /></template>',
+        },
+        SheetContent: {
+          template: '<aside role="dialog"><slot /></aside>',
+        },
+        SheetHeader: {
+          template: '<header><slot /></header>',
+        },
+        SheetTitle: {
+          template: '<h1><slot /></h1>',
+        },
+        SheetDescription: {
+          template: '<p><slot /></p>',
+        },
+        SheetFooter: {
+          template: '<footer><slot /></footer>',
         },
         Select: {
           props: ['inputId', 'modelValue', 'options'],
@@ -129,6 +154,9 @@ function renderEditor(editor: WorkflowEditorController) {
 function createEditor(overrides: {
   isDeleteConfirming?: boolean
 }): WorkflowEditorController {
+  const isEditingTitle = ref(false)
+  const isEditingDescription = ref(false)
+
   return {
     status: {
       isLoading: ref(false),
@@ -173,25 +201,37 @@ function createEditor(overrides: {
     details: {
       selectedNode: computed(() => null),
       isOpen: computed(() => true),
-      heading: computed(() => 'Welcome message'),
       typeLabel: computed(() => 'Send message'),
       title: ref('Welcome message'),
       description: ref('Hello there'),
       titleError: computed(() => null),
       descriptionError: computed(() => null),
       errorMessage: computed(() => null),
-      contentErrorMessages: computed(() => []),
+      isEditingTitle: computed(() => isEditingTitle.value),
+      isEditingDescription: computed(() => isEditingDescription.value),
       isDirty: computed(() => true),
       isSaving: ref(false),
       isDeleting: ref(false),
       isDeleteConfirming: ref(overrides.isDeleteConfirming ?? false),
+      deleteButtonLabel: computed(() =>
+        overrides.isDeleteConfirming ? 'Confirm delete' : 'Delete',
+      ),
       close: vi.fn(),
       setVisibility: vi.fn(),
       updateTitle: vi.fn(),
       updateDescription: vi.fn(),
+      startEditing: vi.fn(async (field) => {
+        isEditingTitle.value = field === 'title'
+        isEditingDescription.value = field === 'description'
+      }),
+      finishEditing: vi.fn(),
+      cancelEditing: vi.fn(),
+      handleDescriptionKeydown: vi.fn(),
+      focusDetailsPanel: vi.fn(),
       sendMessage: {
         isVisible: computed(() => false),
         items: computed(() => []),
+        contentError: computed(() => null),
         attachmentError: ref(null),
         addText: vi.fn(),
         updateText: vi.fn(),
@@ -207,8 +247,11 @@ function createEditor(overrides: {
       businessHours: {
         isVisible: computed(() => false),
         hours: ref([]),
+        hoursError: computed(() => null),
+        hourErrorMessages: computed(() => []),
         timezone: ref(''),
         timezoneOptions: computed(() => []),
+        timezoneError: computed(() => null),
         updateHour: vi.fn(),
         updateTimezone: vi.fn(),
       },
@@ -216,6 +259,7 @@ function createEditor(overrides: {
       requestDelete: vi.fn(),
       cancelDelete: vi.fn(),
       confirmDelete: vi.fn(),
+      handleDeleteAction: vi.fn(),
     },
   }
 }
