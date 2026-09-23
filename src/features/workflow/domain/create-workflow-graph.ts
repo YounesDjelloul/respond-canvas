@@ -5,7 +5,7 @@ import type {
   WorkflowGraphError,
   WorkflowNode,
 } from './types'
-import { createWorkflowLayout } from './layout-workflow'
+import { assembleWorkflowGraph } from './assemble-workflow-graph'
 
 const sourceIdSchema = z.union([z.string().min(1), z.number().finite()])
 
@@ -62,6 +62,9 @@ const commentDataSchema = z.object({
 })
 
 type SourceNode = z.infer<typeof sourceNodeSchema>
+type NodeNormalizationResult =
+  | { ok: true; node: WorkflowNode }
+  | { ok: false; errors: WorkflowGraphError[] }
 
 export function createWorkflowGraph(
   payload: unknown,
@@ -93,181 +96,34 @@ export function createWorkflowGraph(
     return { ok: false, errors: relationshipErrors }
   }
 
-  const positions = createWorkflowLayout(nodes)
-  const positionedNodes = nodes.map((node) => ({
-    ...node,
-    position: positions.get(node.id) ?? node.position,
-  }))
-
   return {
     ok: true,
-    value: {
-      nodes: positionedNodes,
-      edges: positionedNodes.flatMap((node) =>
-        node.parentId === null
-          ? []
-          : [
-              {
-                id: `${node.parentId}:${node.id}`,
-                source: node.parentId,
-                target: node.id,
-              },
-            ],
-      ),
-    },
+    value: assembleWorkflowGraph(nodes),
   }
 }
 
-function normalizeNode(
-  sourceNode: SourceNode,
-):
-  | { ok: true; node: WorkflowNode }
-  | { ok: false; errors: WorkflowGraphError[] } {
+function normalizeNode(sourceNode: SourceNode): NodeNormalizationResult {
   const id = String(sourceNode.id)
   const parentId = sourceNode.parentId === -1 ? null : String(sourceNode.parentId)
-  const position = { x: 0, y: 0 }
 
   if (sourceNode.type === 'trigger') {
-    const dataResult = triggerDataSchema.safeParse(sourceNode.data)
-
-    if (!dataResult.success) {
-      return invalidNodeData(id, dataResult.error)
-    }
-
-    const title = sourceNode.name ?? humanize(dataResult.data.type)
-
-    return {
-      ok: true,
-      node: {
-        id,
-        parentId,
-        kind: 'trigger',
-        title,
-        description: sourceNode.description ?? title,
-        editable: true,
-        accent: 'violet',
-        position,
-        config: {
-          eventType: dataResult.data.type,
-          oncePerContact: dataResult.data.oncePerContact,
-        },
-      },
-    }
+    return normalizeTriggerNode(sourceNode, id, parentId)
   }
 
   if (sourceNode.type === 'sendMessage') {
-    const dataResult = sendMessageDataSchema.safeParse(sourceNode.data)
-
-    if (!dataResult.success) {
-      return invalidNodeData(id, dataResult.error)
-    }
-
-    const parts = dataResult.data.payload.map((part) => ({
-      type: part.type,
-      value: part.type === 'text' ? part.text : part.attachment,
-    }))
-    const firstText = parts.find((part) => part.type === 'text')?.value
-
-    return {
-      ok: true,
-      node: {
-        id,
-        parentId,
-        kind: 'send-message',
-        title: sourceNode.name ?? 'Send message',
-        description: sourceNode.description ?? firstText ?? 'Attachment',
-        editable: true,
-        accent: 'green',
-        position,
-        config: { parts },
-      },
-    }
+    return normalizeSendMessageNode(sourceNode, id, parentId)
   }
 
   if (sourceNode.type === 'dateTime' || sourceNode.type === 'businessHours') {
-    const dataResult = businessHoursDataSchema.safeParse(sourceNode.data)
-
-    if (!dataResult.success) {
-      return invalidNodeData(id, dataResult.error)
-    }
-
-    const firstHours = dataResult.data.times[0]
-    const schedule = firstHours
-      ? `${firstHours.startTime}–${firstHours.endTime} · ${dataResult.data.timezone}`
-      : dataResult.data.timezone
-
-    return {
-      ok: true,
-      node: {
-        id,
-        parentId,
-        kind: 'business-hours',
-        title: sourceNode.name ?? 'Business hours',
-        description: sourceNode.description ?? schedule,
-        editable: true,
-        accent: 'orange',
-        position,
-        config: {
-          hours: dataResult.data.times,
-          timezone: dataResult.data.timezone,
-          connectorIds: dataResult.data.connectors.map(String),
-        },
-      },
-    }
+    return normalizeBusinessHoursNode(sourceNode, id, parentId)
   }
 
   if (sourceNode.type === 'dateTimeConnector') {
-    const dataResult = branchDataSchema.safeParse(sourceNode.data)
-
-    if (!dataResult.success) {
-      return invalidNodeData(id, dataResult.error)
-    }
-
-    const isSuccess = dataResult.data.connectorType === 'success'
-
-    return {
-      ok: true,
-      node: {
-        id,
-        parentId,
-        kind: 'branch',
-        title: sourceNode.name ?? humanize(dataResult.data.connectorType),
-        description:
-          sourceNode.description ??
-          (isSuccess ? 'Conditions matched' : 'Conditions did not match'),
-        editable: false,
-        accent: isSuccess ? 'green' : 'neutral',
-        position,
-        config: {
-          outcome: dataResult.data.connectorType,
-        },
-      },
-    }
+    return normalizeBranchNode(sourceNode, id, parentId)
   }
 
   if (sourceNode.type === 'addComment') {
-    const dataResult = commentDataSchema.safeParse(sourceNode.data)
-
-    if (!dataResult.success) {
-      return invalidNodeData(id, dataResult.error)
-    }
-
-    return {
-      ok: true,
-      node: {
-        id,
-        parentId,
-        kind: 'add-comment',
-        title: sourceNode.name ?? 'Add comment',
-        description: sourceNode.description ?? dataResult.data.comment,
-        editable: true,
-        accent: 'blue',
-        position,
-        config: {
-          comment: dataResult.data.comment,
-        },
-      },
-    }
+    return normalizeAddCommentNode(sourceNode, id, parentId)
   }
 
   return {
@@ -279,6 +135,169 @@ function normalizeNode(
         message: `Unsupported node type: ${sourceNode.type}`,
       },
     ],
+  }
+}
+
+function normalizeTriggerNode(
+  sourceNode: SourceNode,
+  id: string,
+  parentId: string | null,
+): NodeNormalizationResult {
+  const dataResult = triggerDataSchema.safeParse(sourceNode.data)
+
+  if (!dataResult.success) {
+    return invalidNodeData(id, dataResult.error)
+  }
+
+  const title = sourceNode.name ?? humanize(dataResult.data.type)
+
+  return {
+    ok: true,
+    node: {
+      id,
+      parentId,
+      kind: 'trigger',
+      title,
+      description: sourceNode.description ?? title,
+      editable: true,
+      accent: 'violet',
+      position: { x: 0, y: 0 },
+      config: {
+        eventType: dataResult.data.type,
+        oncePerContact: dataResult.data.oncePerContact,
+      },
+    },
+  }
+}
+
+function normalizeSendMessageNode(
+  sourceNode: SourceNode,
+  id: string,
+  parentId: string | null,
+): NodeNormalizationResult {
+  const dataResult = sendMessageDataSchema.safeParse(sourceNode.data)
+
+  if (!dataResult.success) {
+    return invalidNodeData(id, dataResult.error)
+  }
+
+  const parts = dataResult.data.payload.map((part) => ({
+    type: part.type,
+    value: part.type === 'text' ? part.text : part.attachment,
+  }))
+  const firstText = parts.find((part) => part.type === 'text')?.value
+
+  return {
+    ok: true,
+    node: {
+      id,
+      parentId,
+      kind: 'send-message',
+      title: sourceNode.name ?? 'Send message',
+      description: sourceNode.description ?? firstText ?? 'Attachment',
+      editable: true,
+      accent: 'green',
+      position: { x: 0, y: 0 },
+      config: { parts },
+    },
+  }
+}
+
+function normalizeBusinessHoursNode(
+  sourceNode: SourceNode,
+  id: string,
+  parentId: string | null,
+): NodeNormalizationResult {
+  const dataResult = businessHoursDataSchema.safeParse(sourceNode.data)
+
+  if (!dataResult.success) {
+    return invalidNodeData(id, dataResult.error)
+  }
+
+  const firstHours = dataResult.data.times[0]
+  const schedule = firstHours
+    ? `${firstHours.startTime}–${firstHours.endTime} · ${dataResult.data.timezone}`
+    : dataResult.data.timezone
+
+  return {
+    ok: true,
+    node: {
+      id,
+      parentId,
+      kind: 'business-hours',
+      title: sourceNode.name ?? 'Business hours',
+      description: sourceNode.description ?? schedule,
+      editable: true,
+      accent: 'orange',
+      position: { x: 0, y: 0 },
+      config: {
+        hours: dataResult.data.times,
+        timezone: dataResult.data.timezone,
+        connectorIds: dataResult.data.connectors.map(String),
+      },
+    },
+  }
+}
+
+function normalizeBranchNode(
+  sourceNode: SourceNode,
+  id: string,
+  parentId: string | null,
+): NodeNormalizationResult {
+  const dataResult = branchDataSchema.safeParse(sourceNode.data)
+
+  if (!dataResult.success) {
+    return invalidNodeData(id, dataResult.error)
+  }
+
+  const isSuccess = dataResult.data.connectorType === 'success'
+
+  return {
+    ok: true,
+    node: {
+      id,
+      parentId,
+      kind: 'branch',
+      title: sourceNode.name ?? humanize(dataResult.data.connectorType),
+      description:
+        sourceNode.description ??
+        (isSuccess ? 'Conditions matched' : 'Conditions did not match'),
+      editable: false,
+      accent: isSuccess ? 'green' : 'neutral',
+      position: { x: 0, y: 0 },
+      config: {
+        outcome: dataResult.data.connectorType,
+      },
+    },
+  }
+}
+
+function normalizeAddCommentNode(
+  sourceNode: SourceNode,
+  id: string,
+  parentId: string | null,
+): NodeNormalizationResult {
+  const dataResult = commentDataSchema.safeParse(sourceNode.data)
+
+  if (!dataResult.success) {
+    return invalidNodeData(id, dataResult.error)
+  }
+
+  return {
+    ok: true,
+    node: {
+      id,
+      parentId,
+      kind: 'add-comment',
+      title: sourceNode.name ?? 'Add comment',
+      description: sourceNode.description ?? dataResult.data.comment,
+      editable: true,
+      accent: 'blue',
+      position: { x: 0, y: 0 },
+      config: {
+        comment: dataResult.data.comment,
+      },
+    },
   }
 }
 
@@ -297,11 +316,22 @@ function invalidNodeData(
 }
 
 function validateRelationships(nodes: WorkflowNode[]): WorkflowGraphError[] {
+  const nodeIds = new Set(nodes.map((node) => node.id))
+
+  return [
+    ...findDuplicateIdErrors(nodes),
+    ...findMissingParentErrors(nodes, nodeIds),
+    ...findMissingRootErrors(nodes),
+    ...findCycleErrors(nodes),
+  ]
+}
+
+function findDuplicateIdErrors(nodes: WorkflowNode[]): WorkflowGraphError[] {
   const errors: WorkflowGraphError[] = []
-  const nodeIds = new Set<string>()
+  const seenIds = new Set<string>()
 
   for (const node of nodes) {
-    if (nodeIds.has(node.id)) {
+    if (seenIds.has(node.id)) {
       errors.push({
         code: 'duplicate-node-id',
         path: ['nodes', node.id, 'id'],
@@ -309,8 +339,17 @@ function validateRelationships(nodes: WorkflowNode[]): WorkflowGraphError[] {
       })
     }
 
-    nodeIds.add(node.id)
+    seenIds.add(node.id)
   }
+
+  return errors
+}
+
+function findMissingParentErrors(
+  nodes: WorkflowNode[],
+  nodeIds: Set<string>,
+): WorkflowGraphError[] {
+  const errors: WorkflowGraphError[] = []
 
   for (const node of nodes) {
     if (node.parentId !== null && !nodeIds.has(node.parentId)) {
@@ -322,14 +361,23 @@ function validateRelationships(nodes: WorkflowNode[]): WorkflowGraphError[] {
     }
   }
 
-  if (!nodes.some((node) => node.parentId === null)) {
-    errors.push({
-      code: 'missing-root',
-      path: ['nodes'],
-      message: 'The workflow must contain a root node',
-    })
-  }
+  return errors
+}
 
+function findMissingRootErrors(nodes: WorkflowNode[]): WorkflowGraphError[] {
+  return nodes.some((node) => node.parentId === null)
+    ? []
+    : [
+        {
+          code: 'missing-root',
+          path: ['nodes'],
+          message: 'The workflow must contain a root node',
+        },
+      ]
+}
+
+function findCycleErrors(nodes: WorkflowNode[]): WorkflowGraphError[] {
+  const errors: WorkflowGraphError[] = []
   const nodesById = new Map(nodes.map((node) => [node.id, node]))
 
   for (const node of nodes) {

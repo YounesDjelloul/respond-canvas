@@ -5,6 +5,7 @@ import { render, waitFor } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { WorkflowRepository } from '../../data/types'
+import { CREATABLE_WORKFLOW_NODE_KINDS } from '../../domain'
 import { useWorkflowEditor } from '../use-workflow-editor'
 
 const validPayload = [
@@ -92,6 +93,14 @@ describe('useWorkflowEditor', () => {
         focusable: false,
       }),
     ])
+    expect(model.creation.typeOptions.map((option) => option.value)).toEqual(
+      CREATABLE_WORKFLOW_NODE_KINDS,
+    )
+    expect(model.canvas.nodes.value[1]?.data).toMatchObject({
+      icon: '➤',
+      accentClass: 'border-l-emerald-400',
+      iconClass: 'bg-emerald-50 text-emerald-600',
+    })
   })
 
   it('exposes repository failures as a presentation-ready error', async () => {
@@ -234,6 +243,18 @@ describe('useWorkflowEditor', () => {
     await waitFor(() => {
       expect(model.details.businessHours.isVisible.value).toBe(true)
     })
+
+    const timezoneOptions = model.details.businessHours.timezoneOptions.value
+    const firstAsianTimezoneIndex = timezoneOptions.findIndex((value) =>
+      value.startsWith('Asia/'),
+    )
+    const firstAmericanTimezoneIndex = timezoneOptions.findIndex((value) =>
+      value.startsWith('America/'),
+    )
+
+    expect(timezoneOptions).toContain('UTC')
+    expect(firstAsianTimezoneIndex).toBeGreaterThanOrEqual(0)
+    expect(firstAmericanTimezoneIndex).toBeGreaterThan(firstAsianTimezoneIndex)
 
     model.details.businessHours.updateHour(0, 'startTime', '18:00')
     model.details.save()

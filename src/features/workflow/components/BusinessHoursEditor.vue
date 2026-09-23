@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Select from 'primevue/select'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 
 const {
@@ -67,16 +68,17 @@ const {
       <label for="business-timezone" class="block text-xs font-medium text-slate-700">
         Timezone
       </label>
-      <select
-        id="business-timezone"
-        :value="timezone"
-        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition-colors duration-150 hover:border-slate-300 focus:border-violet-400"
-        @change="updateTimezone(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="option in timezoneOptions" :key="option" :value="option">
-          {{ option }}
-        </option>
-      </select>
+      <Select
+        input-id="business-timezone"
+        :model-value="timezone"
+        :options="timezoneOptions"
+        :virtual-scroller-options="{ itemSize: 38 }"
+        :pt="{ pcFilter: { root: { 'aria-label': 'Filter timezones' } } }"
+        aria-label="Timezone"
+        filter
+        fluid
+        @update:model-value="updateTimezone"
+      />
     </div>
   </section>
 </template>

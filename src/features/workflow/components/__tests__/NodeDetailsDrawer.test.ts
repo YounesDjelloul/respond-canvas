@@ -115,6 +115,12 @@ function renderEditor(editor: WorkflowEditorController) {
           props: ['visible'],
           template: '<aside v-if="visible" role="dialog"><slot /></aside>',
         },
+        Select: {
+          props: ['inputId', 'modelValue', 'options'],
+          emits: ['update:modelValue'],
+          template:
+            '<select :id="inputId" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="option in options" :key="option" :value="option">{{ option }}</option></select>',
+        },
       },
     },
   })

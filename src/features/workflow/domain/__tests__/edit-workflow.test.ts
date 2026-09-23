@@ -4,6 +4,7 @@ import {
   deleteWorkflowNode,
   insertWorkflowNode,
   updateWorkflowNode,
+  validateWorkflowAttachment,
 } from '../index'
 
 const payload = [
@@ -65,7 +66,7 @@ describe('workflow editing', () => {
       title: '  Greeting  ',
       description: '  Welcome the customer  ',
       kind: 'send-message',
-      parts: [{ type: 'text', value: 'Updated hello' }],
+      parts: [{ type: 'text', value: '  Updated hello  ' }],
     })
 
     expect(result.ok).toBe(true)
@@ -158,6 +159,47 @@ describe('workflow editing', () => {
     expect(invalidHoursResult).toMatchObject({
       ok: false,
       errors: [{ code: 'business-time-range-invalid' }],
+    })
+  })
+
+  it('combines schema-backed field errors with explicit business rules', () => {
+    const result = updateWorkflowNode(validGraph(), {
+      id: 'hours',
+      title: 'Business Hours',
+      description: 'Office schedule',
+      kind: 'business-hours',
+      hours: [
+        { day: 'mon', startTime: '25:00', endTime: '17:00' },
+        { day: 'mon', startTime: '09:00', endTime: '17:00' },
+      ],
+      timezone: ' ',
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining([
+        expect.objectContaining({ code: 'business-time-invalid' }),
+        expect.objectContaining({ code: 'timezone-required' }),
+        expect.objectContaining({ code: 'business-day-duplicate' }),
+      ]),
+    })
+  })
+
+  it('validates attachment metadata before file IO', () => {
+    const result = validateWorkflowAttachment({
+      name: 'large-video.mp4',
+      size: 5 * 1024 * 1024 + 1,
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        {
+          code: 'attachment-too-large',
+          message: 'large-video.mp4 exceeds the 5 MB limit',
+          path: ['size'],
+        },
+      ],
     })
   })
 

@@ -1,16 +1,9 @@
 import type { DomainError } from '@/features/shared/domain'
 
-export type WorkflowNodeKind =
-  | 'trigger'
-  | 'send-message'
-  | 'business-hours'
-  | 'branch'
-  | 'add-comment'
-
-export type CreatableWorkflowNodeKind =
-  | 'send-message'
-  | 'business-hours'
-  | 'add-comment'
+export type {
+  CreatableWorkflowNodeKind,
+  WorkflowNodeKind,
+} from './workflow-node-kinds'
 
 export type WorkflowNodeAccent = 'neutral' | 'violet' | 'orange' | 'green' | 'blue'
 
@@ -180,6 +173,7 @@ export type WorkflowMutationErrorCode =
   | 'message-content-required'
   | 'message-text-required'
   | 'attachment-required'
+  | 'attachment-too-large'
   | 'business-hours-required'
   | 'business-day-duplicate'
   | 'business-time-invalid'

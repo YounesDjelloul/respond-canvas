@@ -43,11 +43,16 @@ test('opens an editable node directly from its route', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByLabel('Title')).toHaveValue('Business Hours')
   await page.getByLabel('mon opening time').fill('08:00')
-  await page.getByLabel('Timezone').selectOption('Asia/Singapore')
+  const timezone = page.getByRole('combobox', { name: 'Timezone' })
+  await timezone.click()
+  await page
+    .getByRole('searchbox', { name: 'Filter timezones' })
+    .fill('Asia/Singapore')
+  await page.getByRole('option', { name: 'Asia/Singapore', exact: true }).click()
   await page.getByRole('button', { name: 'Save changes' }).click()
 
   await expect(page.getByLabel('mon opening time')).toHaveValue('08:00')
-  await expect(page.getByLabel('Timezone')).toHaveValue('Asia/Singapore')
+  await expect(timezone).toHaveText('Asia/Singapore')
 })
 
 test('creates a terminal workflow step through insertion mode', async ({ page }) => {

@@ -27,7 +27,7 @@ The application uses Functional Core / Imperative Shell architecture inside feat
 - `composables/` coordinate TanStack Query and expose presentation-ready view models.
 - `components/` render those view models and forward user interactions.
 
-The workflow page provides one feature-scoped editor controller. Canvas and drawer components inject focused `status`, `canvas`, and `details` APIs from that controller, avoiding broad prop and event chains without promoting local editor state into a global store.
+The workflow page provides one feature-scoped editor controller composed from focused graph, selection, canvas, creation, and details composables. Components inject presentation-ready `status`, `canvas`, `creation`, and `details` APIs, avoiding broad prop and event chains. TanStack Query owns the in-memory workflow graph, while Pinia owns only the editor's cross-component insertion mode and active insertion point.
 
 The transport payload is normalized into a consistent TypeScript model at the boundary. Mixed numeric and string IDs, transport-specific node names, and Business Hours represented as `dateTime` are not allowed to leak into the UI.
 

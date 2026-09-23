@@ -1,9 +1,12 @@
 export { createWorkflowGraph } from './create-workflow-graph'
+export { deleteWorkflowNode } from './delete-workflow-node'
+export { insertWorkflowNode } from './insert-workflow-node'
+export { updateWorkflowNode } from './update-workflow-node'
+export { validateWorkflowAttachment } from './validate-workflow-fields'
 export {
-  deleteWorkflowNode,
-  insertWorkflowNode,
-  updateWorkflowNode,
-} from './edit-workflow'
+  CREATABLE_WORKFLOW_NODE_KINDS,
+  WORKFLOW_NODE_KINDS,
+} from './workflow-node-kinds'
 export type {
   AddCommentWorkflowNode,
   BranchWorkflowNode,
