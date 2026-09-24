@@ -92,15 +92,12 @@ test('opens an editable node directly from its route', async ({ page }) => {
     }),
   ).toBe(true)
   await footer.getByRole('button', { name: 'Delete' }).click()
-  await expect(footer.getByText('Delete this part of the workflow?')).toBeVisible()
-  expect(
-    await footer.evaluate((element) => {
-      const bounds = element.getBoundingClientRect()
-
-      return bounds.top >= 0 && bounds.bottom <= window.innerHeight
-    }),
-  ).toBe(true)
-  await footer.getByRole('button', { name: 'Cancel' }).click()
+  const confirmation = page.getByRole('alertdialog', { name: 'Delete “Business Hours”?' })
+  await expect(confirmation).toBeVisible()
+  await expect(confirmation.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await confirmation.getByRole('button', { name: 'Cancel' }).click()
+  await expect(confirmation).toBeHidden()
+  await expect(page.getByRole('dialog', { name: 'Node details' })).toBeVisible()
 
   await page.getByLabel('mon opening time').fill('08:00')
   const timezone = page.getByRole('combobox', { name: 'Timezone' })

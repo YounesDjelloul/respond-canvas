@@ -21,13 +21,14 @@ const {
     confirmLabel,
     confirm,
     setVisibility,
+    handleCloseAutoFocus,
   },
 } = useWorkflowEditorContext()
 </script>
 
 <template>
   <AlertDialog :open="isOpen" @update:open="setVisibility">
-    <AlertDialogContent>
+    <AlertDialogContent @close-auto-focus="handleCloseAutoFocus">
       <AlertDialogHeader>
         <AlertDialogTitle>{{ title }}</AlertDialogTitle>
         <AlertDialogDescription>{{ message }}</AlertDialogDescription>

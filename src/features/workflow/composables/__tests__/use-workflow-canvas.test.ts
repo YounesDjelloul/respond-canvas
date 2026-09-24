@@ -401,8 +401,11 @@ describe('useWorkflowEditor', () => {
     })
 
     model.details.requestDelete()
-    expect(model.details.isDeleteConfirming.value).toBe(true)
-    model.details.confirmDelete()
+    expect(model.deletion.isOpen.value).toBe(true)
+    expect(model.deletion.message.value).toBe(
+      'This step will be removed from the workflow.',
+    )
+    model.deletion.confirm()
 
     await waitFor(() => {
       expect(model.canvas.nodes.value.map((node) => node.id)).toEqual(['1'])
@@ -600,12 +603,41 @@ describe('useWorkflowEditor', () => {
       'This step and the 1 step after it will be removed.',
     )
 
+    const cancelledCloseFocus = new Event('close-auto-focus', { cancelable: true })
+    model.deletion.handleCloseAutoFocus(cancelledCloseFocus)
+    expect(cancelledCloseFocus.defaultPrevented).toBe(false)
+
     model.deletion.confirm()
 
     await waitFor(() => {
       expect(model.canvas.nodes.value.map((node) => node.id)).toEqual(['1', 'hours'])
     })
     expect(model.deletion.isOpen.value).toBe(false)
+
+    const deletedCloseFocus = new Event('close-auto-focus', { cancelable: true })
+    model.deletion.handleCloseAutoFocus(deletedCloseFocus)
+    expect(deletedCloseFocus.defaultPrevented).toBe(true)
+  })
+
+  it('lets the details drawer delete the trigger with a whole-workflow warning', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => validPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/1')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    model.deletion.request('1')
+    expect(model.deletion.isOpen.value).toBe(false)
+
+    model.details.requestDelete()
+
+    expect(model.deletion.isOpen.value).toBe(true)
+    expect(model.deletion.message.value).toBe(
+      'This removes the trigger and the entire workflow.',
+    )
   })
 
   it('keeps the workflow unchanged when deletion is cancelled or not allowed', async () => {

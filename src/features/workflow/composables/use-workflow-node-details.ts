@@ -8,7 +8,6 @@ import {
   withoutErrorsUnder,
 } from '@/features/shared/domain'
 import {
-  deleteWorkflowNode,
   updateWorkflowNode,
   type UpdateWorkflowNodeInput,
   type WorkflowGraph,
@@ -25,6 +24,7 @@ interface WorkflowNodeDetailsDependencies {
   applyGraph: (graph: WorkflowGraph) => void
   closeNode: (focusNodeId?: string | null) => Promise<void>
   setVisibility: (visible: boolean) => void
+  requestDeletion: (nodeId: string) => void
 }
 
 export function useWorkflowNodeDetails({
@@ -33,12 +33,12 @@ export function useWorkflowNodeDetails({
   applyGraph,
   closeNode,
   setVisibility,
+  requestDeletion,
 }: WorkflowNodeDetailsDependencies) {
   const title = ref('')
   const description = ref('')
   const comment = ref('')
   const operationErrors = ref<readonly WorkflowMutationError[]>([])
-  const isDeleteConfirming = ref(false)
   const editingField = ref<'title' | 'description' | null>(null)
   const fieldValueBeforeEditing = ref('')
   const sendMessageDraft = useSendMessageDraft(clearContentErrors)
@@ -47,11 +47,6 @@ export function useWorkflowNodeDetails({
   const updateMutation = useMutation({
     mutationFn: async (input: UpdateWorkflowNodeInput) =>
       updateWorkflowNode(requireGraph(toValue(graph)), input),
-    onSuccess: applyMutationResult,
-  })
-  const deleteMutation = useMutation({
-    mutationFn: async (nodeId: string) =>
-      deleteWorkflowNode(requireGraph(toValue(graph)), nodeId),
     onSuccess: applyMutationResult,
   })
   const titleError = computed(() => errorMessageAt(operationErrors.value, ['title']))
@@ -104,13 +99,6 @@ export function useWorkflowNodeDetails({
       ? workflowNodePresentationFor(currentNode.value.kind).label
       : '',
   )
-  const deleteButtonLabel = computed(() => {
-    if (deleteMutation.isPending.value) {
-      return 'Deleting…'
-    }
-
-    return isDeleteConfirming.value ? 'Confirm delete' : 'Delete'
-  })
 
   watch(
     currentNode,
@@ -121,7 +109,6 @@ export function useWorkflowNodeDetails({
       sendMessageDraft.reset(node)
       businessHoursDraft.reset(node)
       operationErrors.value = []
-      isDeleteConfirming.value = false
       editingField.value = null
       fieldValueBeforeEditing.value = ''
     },
@@ -225,46 +212,17 @@ export function useWorkflowNodeDetails({
   }
 
   function requestDelete() {
-    isDeleteConfirming.value = true
-  }
-
-  function cancelDelete() {
-    isDeleteConfirming.value = false
-  }
-
-  function handleDeleteAction() {
-    if (isDeleteConfirming.value) {
-      confirmDelete()
-      return
+    if (currentNode.value) {
+      requestDeletion(currentNode.value.id)
     }
-
-    requestDelete()
-  }
-
-  function confirmDelete() {
-    if (!currentNode.value) {
-      return
-    }
-
-    const parentId = currentNode.value.parentId
-    const nodeId = currentNode.value.id
-
-    deleteMutation.mutate(nodeId, {
-      onSuccess: (result) => {
-        if (result.ok) {
-          void closeNode(parentId)
-        }
-      },
-    })
   }
 
   function applyMutationResult(
-    result: ReturnType<typeof updateWorkflowNode> | ReturnType<typeof deleteWorkflowNode>,
+    result: ReturnType<typeof updateWorkflowNode>,
   ) {
     if (result.ok) {
       applyGraph(result.value)
       operationErrors.value = []
-      isDeleteConfirming.value = false
       return
     }
 
@@ -292,9 +250,6 @@ export function useWorkflowNodeDetails({
     isEditingDescription: computed(() => editingField.value === 'description'),
     isDirty,
     isSaving: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isDeleteConfirming,
-    deleteButtonLabel,
     close: closeNode,
     setVisibility,
     focusDetailsPanel,
@@ -335,9 +290,6 @@ export function useWorkflowNodeDetails({
     },
     save,
     requestDelete,
-    cancelDelete,
-    confirmDelete,
-    handleDeleteAction,
   }
 }
 

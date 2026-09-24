@@ -27,9 +27,6 @@ const {
     isEditingDescription,
     isDirty,
     isSaving,
-    isDeleting,
-    isDeleteConfirming,
-    deleteButtonLabel,
     setVisibility,
     focusDetailsPanel,
     updateTitle,
@@ -42,8 +39,7 @@ const {
     addComment: { isVisible: isAddComment },
     businessHours: { isVisible: isBusinessHours },
     save,
-    cancelDelete,
-    handleDeleteAction,
+    requestDelete,
   },
 } = useWorkflowEditorContext()
 </script>
@@ -174,35 +170,10 @@ const {
       <SheetFooter
         class="mt-0 shrink-0 gap-3 border-t border-slate-200 bg-white px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
-        <div
-          v-if="isDeleteConfirming"
-          class="rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5"
-        >
-          <p class="text-xs font-medium text-red-900">Delete this part of the workflow?</p>
-          <p class="mt-1 text-[11px] leading-4 text-red-700">
-            This node and every node connected after it will be removed.
-          </p>
-        </div>
-
         <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <Button
-              v-if="isDeleteConfirming"
-              type="button"
-              variant="outline"
-              @click="cancelDelete"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              :variant="isDeleteConfirming ? 'destructive' : 'ghost-destructive'"
-              :disabled="isDeleting"
-              @click="handleDeleteAction"
-            >
-              {{ deleteButtonLabel }}
-            </Button>
-          </div>
+          <Button type="button" variant="ghost-destructive" @click="requestDelete">
+            Delete
+          </Button>
 
           <Button
             type="submit"

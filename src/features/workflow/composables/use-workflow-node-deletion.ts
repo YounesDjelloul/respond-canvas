@@ -6,6 +6,7 @@ import {
   countWorkflowNodeDescendants,
   deleteWorkflowNode,
   type WorkflowGraph,
+  type WorkflowNode,
 } from '../domain'
 
 interface WorkflowNodeDeletionDependencies {
@@ -21,6 +22,7 @@ export function useWorkflowNodeDeletion({
 }: WorkflowNodeDeletionDependencies) {
   const pendingNodeId = ref<string | null>(null)
   const errorMessage = ref<string | null>(null)
+  const hasDeletedPendingNode = ref(false)
   const deleteMutation = useMutation({
     mutationFn: async (nodeId: string) =>
       deleteWorkflowNode(requireGraph(toValue(graph)), nodeId),
@@ -38,6 +40,10 @@ export function useWorkflowNodeDeletion({
   const message = computed(() => {
     const count = followingStepCount.value
 
+    if (pendingNode.value?.parentId === null) {
+      return 'This removes the trigger and the entire workflow.'
+    }
+
     if (count === 0) {
       return 'This step will be removed from the workflow.'
     }
@@ -46,13 +52,25 @@ export function useWorkflowNodeDeletion({
   })
 
   function request(nodeId: string) {
+    openConfirmation(nodeId, canQuickDeleteWorkflowNode)
+  }
+
+  function requestFromDetails(nodeId: string) {
+    openConfirmation(nodeId, (node) => node.editable)
+  }
+
+  function openConfirmation(
+    nodeId: string,
+    isAllowed: (node: WorkflowNode) => boolean,
+  ) {
     const node = toValue(graph)?.nodes.find((candidate) => candidate.id === nodeId)
 
-    if (!node || !canQuickDeleteWorkflowNode(node)) {
+    if (!node || !isAllowed(node)) {
       return
     }
 
     errorMessage.value = null
+    hasDeletedPendingNode.value = false
     pendingNodeId.value = nodeId
   }
 
@@ -87,11 +105,18 @@ export function useWorkflowNodeDeletion({
         }
 
         applyGraph(result.value)
+        hasDeletedPendingNode.value = true
         pendingNodeId.value = null
         errorMessage.value = null
         void closeNode(node.parentId)
       },
     })
+  }
+
+  function handleCloseAutoFocus(event: Event) {
+    if (hasDeletedPendingNode.value) {
+      event.preventDefault()
+    }
   }
 
   return {
@@ -106,9 +131,11 @@ export function useWorkflowNodeDeletion({
       deleteMutation.isPending.value ? 'Deleting…' : 'Delete',
     ),
     request,
+    requestFromDetails,
     cancel,
     confirm,
     setVisibility,
+    handleCloseAutoFocus,
   }
 }
 

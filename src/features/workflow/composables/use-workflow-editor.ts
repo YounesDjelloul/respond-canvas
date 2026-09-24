@@ -40,6 +40,7 @@ export function useWorkflowEditor(
     applyGraph: workflow.applyGraph,
     closeNode: selection.closeNode,
     setVisibility: selection.setDetailsVisibility,
+    requestDeletion: deletion.requestFromDetails,
   })
 
   return {

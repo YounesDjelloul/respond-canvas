@@ -28,19 +28,18 @@ describe('NodeDetailsDrawer', () => {
     expect(details.save).toHaveBeenCalledOnce()
   })
 
-  it('describes and confirms cascading deletion', async () => {
+  it('hands deletion off to the shared confirmation', async () => {
     const user = userEvent.setup()
-    const details = renderDrawer({ isDeleteConfirming: true })
+    const details = renderDrawer()
 
-    expect(screen.getByText(/every node connected after it/i)).not.toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
 
-    expect(details.handleDeleteAction).toHaveBeenCalledOnce()
+    expect(details.requestDelete).toHaveBeenCalledOnce()
   })
 
   it('edits message text and forwards attachment uploads', async () => {
     const user = userEvent.setup()
-    const editor = createEditor({})
+    const editor = createEditor()
     editor.details.sendMessage.isVisible = computed(() => true)
     editor.details.sendMessage.hasContent = computed(() => true)
     editor.details.sendMessage.textItems = computed(() => [
@@ -71,7 +70,7 @@ describe('NodeDetailsDrawer', () => {
 
   it('edits internal comments and business hours', async () => {
     const user = userEvent.setup()
-    const commentEditor = createEditor({})
+    const commentEditor = createEditor()
     commentEditor.details.addComment.isVisible = computed(() => true)
     commentEditor.details.addComment.value.value = 'Follow up'
     renderEditor(commentEditor)
@@ -79,7 +78,7 @@ describe('NodeDetailsDrawer', () => {
     await user.click(screen.getByRole('button', { name: 'Clear comment' }))
     expect(commentEditor.details.addComment.clear).toHaveBeenCalledOnce()
 
-    const businessEditor = createEditor({})
+    const businessEditor = createEditor()
     businessEditor.details.businessHours.isVisible = computed(() => true)
     businessEditor.details.businessHours.hours.value = [
       { day: 'mon', startTime: '09:00', endTime: '17:00' },
@@ -111,8 +110,8 @@ describe('NodeDetailsDrawer', () => {
   })
 })
 
-function renderDrawer(overrides: { isDeleteConfirming?: boolean } = {}) {
-  const editor = createEditor(overrides)
+function renderDrawer() {
+  const editor = createEditor()
   renderEditor(editor)
 
   return editor.details
@@ -154,9 +153,7 @@ function renderEditor(editor: WorkflowEditorController) {
   })
 }
 
-function createEditor(overrides: {
-  isDeleteConfirming?: boolean
-}): WorkflowEditorController {
+function createEditor(): WorkflowEditorController {
   const isEditingTitle = ref(false)
   const isEditingDescription = ref(false)
 
@@ -209,9 +206,11 @@ function createEditor(overrides: {
       isDeleting: ref(false),
       confirmLabel: computed(() => 'Delete'),
       request: vi.fn(),
+      requestFromDetails: vi.fn(),
       cancel: vi.fn(),
       confirm: vi.fn(),
       setVisibility: vi.fn(),
+      handleCloseAutoFocus: vi.fn(),
     },
     details: {
       selectedNode: computed(() => null),
@@ -226,11 +225,6 @@ function createEditor(overrides: {
       isEditingDescription: computed(() => isEditingDescription.value),
       isDirty: computed(() => true),
       isSaving: ref(false),
-      isDeleting: ref(false),
-      isDeleteConfirming: ref(overrides.isDeleteConfirming ?? false),
-      deleteButtonLabel: computed(() =>
-        overrides.isDeleteConfirming ? 'Confirm delete' : 'Delete',
-      ),
       close: vi.fn(),
       setVisibility: vi.fn(),
       updateTitle: vi.fn(),
@@ -274,9 +268,6 @@ function createEditor(overrides: {
       },
       save: vi.fn(),
       requestDelete: vi.fn(),
-      cancelDelete: vi.fn(),
-      confirmDelete: vi.fn(),
-      handleDeleteAction: vi.fn(),
     },
   }
 }

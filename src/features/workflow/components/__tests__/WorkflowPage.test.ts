@@ -109,9 +109,11 @@ function createEditor(state: {
       isDeleting: ref(false),
       confirmLabel: computed(() => 'Delete'),
       request: vi.fn(),
+      requestFromDetails: vi.fn(),
       cancel: vi.fn(),
       confirm: vi.fn(),
       setVisibility: vi.fn(),
+      handleCloseAutoFocus: vi.fn(),
     },
     details: {
       selectedNode: computed(() => null),
@@ -126,9 +128,6 @@ function createEditor(state: {
       isEditingDescription: computed(() => false),
       isDirty: computed(() => false),
       isSaving: ref(false),
-      isDeleting: ref(false),
-      isDeleteConfirming: ref(false),
-      deleteButtonLabel: computed(() => 'Delete'),
       close: vi.fn(),
       setVisibility: vi.fn(),
       updateTitle: vi.fn(),
@@ -169,9 +168,6 @@ function createEditor(state: {
       },
       save: vi.fn(),
       requestDelete: vi.fn(),
-      cancelDelete: vi.fn(),
-      confirmDelete: vi.fn(),
-      handleDeleteAction: vi.fn(),
     },
   }
 }
