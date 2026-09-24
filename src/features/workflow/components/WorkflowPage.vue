@@ -39,10 +39,10 @@ const {
         <Badge
           :variant="isWorkflowReady ? 'success' : 'warning'"
           :title="readinessTitle"
-          class="hidden h-6 gap-1.5 px-2.5 text-[11px] sm:inline-flex"
+          class="h-6 gap-1.5 px-2 text-[11px] sm:px-2.5"
         >
           <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />
-          {{ readinessLabel }}
+          <span class="sr-only sm:not-sr-only">{{ readinessLabel }}</span>
         </Badge>
         <Button
           :variant="isChoosingInsertion ? 'outline' : 'default'"

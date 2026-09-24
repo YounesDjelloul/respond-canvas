@@ -71,7 +71,7 @@ const {
               v-for="option in typeOptions"
               :key="option.value"
               :for="`node-type-${option.value}`"
-              class="relative cursor-pointer rounded-xl border border-slate-200 bg-white p-3 transition-[border-color,background-color,box-shadow] duration-150 hover:border-slate-300 has-data-checked:border-violet-300 has-data-checked:bg-violet-50/60 has-data-checked:shadow-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+              class="relative flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-[border-color,background-color,box-shadow] duration-150 hover:border-slate-300 has-data-checked:border-violet-300 has-data-checked:bg-violet-50/60 has-data-checked:shadow-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50 sm:block"
             >
               <RadioGroupItem
                 :id="`node-type-${option.value}`"
@@ -79,17 +79,19 @@ const {
                 class="absolute top-3 right-3"
               />
               <span
-                class="grid size-7 place-items-center rounded-lg"
+                class="grid size-7 shrink-0 place-items-center rounded-lg"
                 :class="option.iconClass"
                 aria-hidden="true"
               >
                 <component :is="option.icon" class="size-3.5" />
               </span>
-              <span class="mt-2 block text-xs font-semibold text-slate-900">
-                {{ option.label }}
-              </span>
-              <span class="mt-1 block text-[10px] leading-4 text-slate-500">
-                {{ option.description }}
+              <span class="block min-w-0 pr-6 sm:mt-2 sm:pr-0">
+                <span class="block text-xs font-semibold text-slate-900">
+                  {{ option.label }}
+                </span>
+                <span class="mt-1 block text-[10px] leading-4 text-slate-500">
+                  {{ option.description }}
+                </span>
               </span>
             </label>
           </RadioGroup>
@@ -125,6 +127,7 @@ const {
               descriptionError ? 'new-node-description-error' : undefined
             "
             rows="3"
+            class="resize-none"
             @update:model-value="updateDescription"
           />
           <p

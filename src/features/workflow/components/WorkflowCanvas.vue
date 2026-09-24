@@ -56,7 +56,7 @@ const {
     </div>
 
     <div
-      class="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-slate-200/80 bg-white/90 px-2.5 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur"
+      class="pointer-events-none absolute bottom-4 left-4 rounded-lg pointer-coarse:hidden border border-slate-200/80 bg-white/90 px-2.5 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur"
     >
       Drag nodes · Scroll to zoom · Drag canvas to pan
     </div>

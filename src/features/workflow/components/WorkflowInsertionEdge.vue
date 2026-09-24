@@ -7,6 +7,10 @@ import { useWorkflowEditorContext } from '../composables/workflow-editor-context
 import { useWorkflowInsertionEdge } from '../composables/use-workflow-insertion-edge'
 import type { WorkflowCanvasEdgeData } from '../types'
 
+defineOptions({
+  inheritAttrs: false,
+})
+
 const props = defineProps<{
   id: string
   sourceX: number
