@@ -13,7 +13,7 @@ import {
 interface WorkflowNodeDeletionDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
   index: MaybeRefOrGetter<WorkflowGraphIndex | null>
-  applyGraph: (graph: WorkflowGraph) => void
+  applyGraph: (graph: WorkflowGraph, label: string) => void
   closeNode: (focusNodeId?: string | null) => Promise<void>
 }
 
@@ -107,7 +107,7 @@ export function useWorkflowNodeDeletion({
           return
         }
 
-        applyGraph(result.value)
+        applyGraph(result.value, `Delete ${node.title}`)
         hasDeletedPendingNode.value = true
         pendingNodeId.value = null
         errorMessage.value = null

@@ -21,6 +21,7 @@ const {
   >
     <VueFlow
       :id="flowId"
+      only-render-visible-elements
       :min-zoom="0.35"
       :max-zoom="1.75"
       :nodes-connectable="false"

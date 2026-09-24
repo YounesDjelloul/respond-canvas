@@ -2,6 +2,7 @@ import { workflowRepository } from '../data/workflow-repository'
 import type { WorkflowRepository } from '../data/types'
 import { useWorkflowCanvas } from './use-workflow-canvas'
 import { useWorkflowGraph } from './use-workflow-graph'
+import { useWorkflowHistory } from './use-workflow-history'
 import { useWorkflowNodeCreation } from './use-workflow-node-creation'
 import { useWorkflowNodeDeletion } from './use-workflow-node-deletion'
 import { useWorkflowNodeDetails } from './use-workflow-node-details'
@@ -12,14 +13,21 @@ export function useWorkflowEditor(
   repository: WorkflowRepository = workflowRepository,
 ) {
   const workflow = useWorkflowGraph(repository)
+  const history = useWorkflowHistory({
+    graph: workflow.graph,
+    applyGraph: workflow.applyGraph,
+    isBlocked: () =>
+      details.isOpen.value || creation.controller.isOpen.value || deletion.isOpen.value,
+  })
   const selection = useWorkflowSelection(
     workflow.index,
     workflow.status.isLoading,
+    (nodeId) => canvas.revealNode(nodeId),
   )
   const creation = useWorkflowNodeCreation({
     graph: workflow.graph,
     index: workflow.index,
-    applyGraph: workflow.applyGraph,
+    applyGraph: history.commit,
     openNode: selection.openNode,
   })
   const readiness = useWorkflowReadiness({
@@ -37,18 +45,18 @@ export function useWorkflowEditor(
     openNode: selection.openNode,
     openCreation: creation.open,
     openCreationAfter: creation.openAfter,
-    applyGraph: workflow.applyGraph,
+    applyGraph: history.commit,
   })
   const deletion = useWorkflowNodeDeletion({
     graph: workflow.graph,
     index: workflow.index,
-    applyGraph: workflow.applyGraph,
+    applyGraph: history.commit,
     closeNode: selection.closeNode,
   })
   const details = useWorkflowNodeDetails({
     graph: workflow.graph,
     selectedNode: selection.selectedNode,
-    applyGraph: workflow.applyGraph,
+    applyGraph: history.commit,
     closeNode: selection.closeNode,
     setVisibility: selection.setDetailsVisibility,
     requestDeletion: deletion.requestFromDetails,
@@ -62,6 +70,15 @@ export function useWorkflowEditor(
     details,
     deletion,
     readiness,
+    history: {
+      canUndo: history.canUndo,
+      canRedo: history.canRedo,
+      undoLabel: history.undoLabel,
+      redoLabel: history.redoLabel,
+      announcement: history.announcement,
+      undo: history.undo,
+      redo: history.redo,
+    },
   }
 }
 

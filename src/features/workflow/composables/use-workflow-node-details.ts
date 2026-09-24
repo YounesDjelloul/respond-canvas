@@ -21,7 +21,7 @@ import { useSendMessageDraft } from './use-send-message-draft'
 interface WorkflowNodeDetailsDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
   selectedNode: MaybeRefOrGetter<WorkflowNode | null>
-  applyGraph: (graph: WorkflowGraph) => void
+  applyGraph: (graph: WorkflowGraph, label: string) => void
   closeNode: (focusNodeId?: string | null) => Promise<void>
   setVisibility: (visible: boolean) => void
   requestDeletion: (nodeId: string) => void
@@ -223,7 +223,7 @@ export function useWorkflowNodeDetails({
     result: ReturnType<typeof updateWorkflowNode>,
   ) {
     if (result.ok) {
-      applyGraph(result.value)
+      applyGraph(result.value, `Edit ${title.value.trim()}`)
       operationErrors.value = []
       return
     }

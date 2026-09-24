@@ -1,4 +1,4 @@
-import { computed, toValue, useId, watch } from 'vue'
+import { computed, nextTick, toValue, useId, watch } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 import { Position, useVueFlow } from '@vue-flow/core'
 import type { VueFlowStore } from '@vue-flow/core'
@@ -25,7 +25,7 @@ interface WorkflowCanvasDependencies {
   openNode: (nodeId: string) => void
   openCreation: (point: WorkflowInsertionPoint) => void
   openCreationAfter: (nodeId: string) => void
-  applyGraph: (graph: WorkflowGraph) => void
+  applyGraph: (graph: WorkflowGraph, label: string) => void
 }
 
 interface CachedCanvasNode {
@@ -141,17 +141,37 @@ export function useWorkflowCanvas({
     { immediate: true },
   )
 
+  async function revealNode(nodeId: string) {
+    const node = flow.findNode(nodeId)
+
+    if (!node) {
+      return
+    }
+
+    await flow.setCenter(
+      node.position.x + node.dimensions.width / 2,
+      node.position.y + node.dimensions.height / 2,
+      { zoom: flow.getViewport().zoom, duration: 0 },
+    )
+    await nextTick()
+  }
+
   function updateNodePosition(node: Pick<WorkflowCanvasNode, 'id' | 'position'>) {
     const currentGraph = toValue(graph)
+    const movedNode = toValue(index)?.nodesById.get(node.id)
 
-    if (!currentGraph) {
+    if (
+      !currentGraph ||
+      !movedNode ||
+      (movedNode.position.x === node.position.x && movedNode.position.y === node.position.y)
+    ) {
       return
     }
 
     const result = updateWorkflowNodePosition(currentGraph, node.id, node.position)
 
     if (result.ok) {
-      applyGraph(result.value)
+      applyGraph(result.value, `Move ${movedNode.title}`)
     }
   }
 
@@ -163,6 +183,7 @@ export function useWorkflowCanvas({
     openCreation,
     openCreationAfter,
     updateNodePosition,
+    revealNode,
     isChoosingInsertion,
   }
 }

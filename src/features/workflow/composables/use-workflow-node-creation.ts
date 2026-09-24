@@ -28,7 +28,7 @@ import { useWorkflowEditorStore } from '../stores/workflow-editor'
 interface WorkflowNodeCreationDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
   index: MaybeRefOrGetter<WorkflowGraphIndex | null>
-  applyGraph: (graph: WorkflowGraph) => void
+  applyGraph: (graph: WorkflowGraph, label: string) => void
   openNode: (nodeId: string) => void
 }
 
@@ -148,7 +148,7 @@ export function useWorkflowNodeCreation({
           return
         }
 
-        applyGraph(result.value)
+        applyGraph(result.value, `Add ${input.title.trim()}`)
         editorStore.cancelInsertion()
         openNode(nodeId)
       },

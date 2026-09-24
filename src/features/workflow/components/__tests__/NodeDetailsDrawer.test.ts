@@ -171,6 +171,7 @@ function createEditor(): WorkflowEditorController {
       openCreation: vi.fn(),
       openCreationAfter: vi.fn(),
       updateNodePosition: vi.fn(),
+      revealNode: vi.fn(async () => {}),
       isChoosingInsertion: computed(() => false),
     },
     creation: {
@@ -195,6 +196,15 @@ function createEditor(): WorkflowEditorController {
       updateTitle: vi.fn(),
       updateDescription: vi.fn(),
       submit: vi.fn(),
+    },
+    history: {
+      canUndo: computed(() => false),
+      canRedo: computed(() => false),
+      undoLabel: computed(() => 'Undo'),
+      redoLabel: computed(() => 'Redo'),
+      announcement: ref(''),
+      undo: vi.fn(),
+      redo: vi.fn(),
     },
     readiness: {
       isReady: computed(() => true),

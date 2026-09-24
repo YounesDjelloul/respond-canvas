@@ -11,6 +11,13 @@ export { updateWorkflowNode } from './update-workflow-node'
 export { updateWorkflowNodePosition } from './update-workflow-node-position'
 export { validateWorkflowAttachment } from './validate-workflow-fields'
 export {
+  createWorkflowHistory,
+  recordWorkflowChange,
+  redoWorkflowChange,
+  undoWorkflowChange,
+  WORKFLOW_HISTORY_LIMIT,
+} from './workflow-history'
+export {
   validateWorkflowNodeReadiness,
   validateWorkflowReadiness,
   validateWorkflowStructure,
@@ -35,6 +42,8 @@ export type {
   WorkflowGraphError,
   WorkflowGraphErrorCode,
   WorkflowGraphIndex,
+  WorkflowHistory,
+  WorkflowHistoryEntry,
   WorkflowInsertionPoint,
   WorkflowMutationError,
   WorkflowMutationErrorCode,

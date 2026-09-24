@@ -211,3 +211,13 @@ export interface WorkflowGraphIndex {
   nodesById: ReadonlyMap<string, WorkflowNode>
   childrenByParent: ReadonlyMap<string | null, readonly WorkflowNode[]>
 }
+
+export interface WorkflowHistoryEntry {
+  graph: WorkflowGraph
+  label: string
+}
+
+export interface WorkflowHistory {
+  past: readonly WorkflowHistoryEntry[]
+  future: readonly WorkflowHistoryEntry[]
+}

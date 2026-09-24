@@ -6,6 +6,7 @@ import NodeCreationDialog from './NodeCreationDialog.vue'
 import NodeDeleteDialog from './NodeDeleteDialog.vue'
 import ReadinessPopover from './ReadinessPopover.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
+import WorkflowHistoryControls from './WorkflowHistoryControls.vue'
 
 const {
   status: {
@@ -34,6 +35,7 @@ const {
       </div>
 
       <div class="flex items-center gap-2">
+        <WorkflowHistoryControls />
         <ReadinessPopover />
         <Button
           :variant="isChoosingInsertion ? 'outline' : 'default'"

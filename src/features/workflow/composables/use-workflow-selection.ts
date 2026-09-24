@@ -6,6 +6,7 @@ import type { WorkflowGraphIndex } from '../domain'
 export function useWorkflowSelection(
   index: MaybeRefOrGetter<WorkflowGraphIndex | null>,
   isLoading: MaybeRefOrGetter<boolean>,
+  revealNode: (nodeId: string) => Promise<void>,
 ) {
   const route = useRoute()
   const router = useRouter()
@@ -49,8 +50,20 @@ export function useWorkflowSelection(
     await nextTick()
 
     if (focusNodeId) {
-      focusNode(focusNodeId)
+      await focusNode(focusNodeId)
     }
+  }
+
+  async function focusNode(nodeId: string) {
+    const renderedNode = findRenderedNode(nodeId)
+
+    if (renderedNode) {
+      renderedNode.focus()
+      return
+    }
+
+    await revealNode(nodeId)
+    findRenderedNode(nodeId)?.focus()
   }
 
   function setDetailsVisibility(visible: boolean) {
@@ -67,10 +80,8 @@ export function useWorkflowSelection(
   }
 }
 
-function focusNode(nodeId: string) {
-  const node = Array.from(
+function findRenderedNode(nodeId: string): HTMLElement | undefined {
+  return Array.from(
     document.querySelectorAll<HTMLElement>('[data-workflow-node-id]'),
   ).find((element) => element.dataset.workflowNodeId === nodeId)
-
-  node?.focus()
 }

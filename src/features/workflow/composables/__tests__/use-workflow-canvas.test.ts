@@ -835,6 +835,157 @@ describe('useWorkflowEditor', () => {
     expect(flow.findNode('1')).toBe(triggerNode)
   })
 
+  it('undoes and redoes edits once the drawer is closed', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    expect(model.history.canUndo.value).toBe(false)
+
+    model.details.updateTitle('Warm welcome')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value?.title).toBe('Warm welcome')
+    })
+    expect(model.history.undoLabel.value).toBe('Undo edit Warm welcome')
+    expect(model.history.canUndo.value).toBe(false)
+
+    await router.push('/')
+    await waitFor(() => {
+      expect(model.history.canUndo.value).toBe(true)
+    })
+
+    model.history.undo()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.find((view) => view.id === 'message')?.data?.title).toBe(
+        'Welcome',
+      )
+    })
+    expect(model.history.announcement.value).toBe('Undid edit Warm welcome')
+    expect(model.history.canRedo.value).toBe(true)
+    expect(model.history.redoLabel.value).toBe('Redo edit Warm welcome')
+
+    model.history.redo()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.find((view) => view.id === 'message')?.data?.title).toBe(
+        'Warm welcome',
+      )
+    })
+    expect(model.history.canRedo.value).toBe(false)
+  })
+
+  it('restores deleted steps and records only real moves', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    const hours = model.canvas.nodes.value.find((view) => view.id === 'hours')!
+
+    model.canvas.updateNodePosition({ id: 'hours', position: { ...hours.position } })
+    expect(model.history.canUndo.value).toBe(false)
+
+    model.canvas.updateNodePosition({ id: 'hours', position: { x: 999, y: 111 } })
+    expect(model.history.undoLabel.value).toBe('Undo move Business Hours')
+
+    model.deletion.request('message')
+    model.deletion.confirm()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.map((view) => view.id)).toEqual(['1', 'hours'])
+    })
+
+    model.history.undo()
+
+    expect(model.canvas.nodes.value.map((view) => view.id)).toEqual([
+      '1',
+      'message',
+      'comment',
+      'hours',
+    ])
+    expect(model.canvas.edges.value.map((edge) => edge.id)).toContain('message:comment')
+
+    model.history.undo()
+
+    expect(model.canvas.nodes.value.find((view) => view.id === 'hours')?.position).toEqual(
+      hours.position,
+    )
+
+    model.canvas.updateNodePosition({ id: 'hours', position: { x: 5, y: 5 } })
+
+    expect(model.history.canRedo.value).toBe(false)
+  })
+
+  it('handles undo and redo shortcuts outside text fields only', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    model.canvas.updateNodePosition({ id: 'hours', position: { x: 999, y: 111 } })
+
+    const textField = document.createElement('input')
+    document.body.append(textField)
+    textField.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }),
+    )
+
+    expect(model.history.canUndo.value).toBe(true)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }))
+
+    expect(model.history.canUndo.value).toBe(false)
+    expect(model.history.canRedo.value).toBe(true)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true }))
+
+    expect(model.history.canRedo.value).toBe(false)
+    expect(model.canvas.nodes.value.find((view) => view.id === 'hours')?.position).toEqual({
+      x: 999,
+      y: 111,
+    })
+    textField.remove()
+  })
+
+  it('returns focus to rendered nodes and reveals nodes outside the viewport', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    const renderedNode = document.createElement('div')
+    renderedNode.tabIndex = 0
+    renderedNode.dataset.workflowNodeId = '1'
+    document.body.append(renderedNode)
+
+    await model.details.close('1')
+
+    expect(document.activeElement).toBe(renderedNode)
+
+    await expect(model.details.close('comment')).resolves.toBeUndefined()
+    renderedNode.remove()
+  })
+
   it('rebuilds only the renamed node and the edges that touch it', async () => {
     const repository: WorkflowRepository = {
       getWorkflow: async () => typeSpecificPayload,
