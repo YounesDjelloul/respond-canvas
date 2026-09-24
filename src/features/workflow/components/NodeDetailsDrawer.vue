@@ -196,8 +196,7 @@ const {
             </Button>
             <Button
               type="button"
-              :variant="isDeleteConfirming ? 'destructive' : 'ghost'"
-              :class="isDeleteConfirming ? undefined : 'text-destructive hover:bg-destructive/10 hover:text-destructive'"
+              :variant="isDeleteConfirming ? 'destructive' : 'ghost-destructive'"
               :disabled="isDeleting"
               @click="handleDeleteAction"
             >

@@ -1,3 +1,11 @@
+import { markRaw, type Component } from 'vue'
+import {
+  ClockIcon,
+  GitBranchIcon,
+  MessageSquareTextIcon,
+  SendIcon,
+  ZapIcon,
+} from '@lucide/vue'
 import {
   CREATABLE_WORKFLOW_NODE_KINDS,
   type WorkflowNodeAccent,
@@ -8,31 +16,31 @@ import type { WorkflowNodeTypeOption } from '../types'
 const workflowNodePresentation = {
   trigger: {
     label: 'Trigger',
-    icon: '↗',
+    icon: markRaw(ZapIcon),
     defaultAccent: 'violet',
     creationDescription: 'Start a workflow from a customer event.',
   },
   'send-message': {
     label: 'Send message',
-    icon: '➤',
+    icon: markRaw(SendIcon),
     defaultAccent: 'green',
     creationDescription: 'Send text or attachments to the contact.',
   },
   'business-hours': {
     label: 'Business hours',
-    icon: '◷',
+    icon: markRaw(ClockIcon),
     defaultAccent: 'orange',
     creationDescription: 'Route the workflow by team availability.',
   },
   branch: {
     label: 'Branch',
-    icon: '◇',
+    icon: markRaw(GitBranchIcon),
     defaultAccent: 'neutral',
     creationDescription: 'Continue from a generated workflow outcome.',
   },
   'add-comment': {
     label: 'Add comment',
-    icon: '≡',
+    icon: markRaw(MessageSquareTextIcon),
     defaultAccent: 'blue',
     creationDescription: 'Leave an internal note for your team.',
   },
@@ -40,7 +48,7 @@ const workflowNodePresentation = {
   WorkflowNodeKind,
   {
     label: string
-    icon: string
+    icon: Component
     defaultAccent: WorkflowNodeAccent
     creationDescription: string
   }

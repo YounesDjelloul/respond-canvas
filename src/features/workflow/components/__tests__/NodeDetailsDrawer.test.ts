@@ -42,12 +42,14 @@ describe('NodeDetailsDrawer', () => {
     const user = userEvent.setup()
     const editor = createEditor({})
     editor.details.sendMessage.isVisible = computed(() => true)
-    editor.details.sendMessage.items = computed(() => [
+    editor.details.sendMessage.hasContent = computed(() => true)
+    editor.details.sendMessage.textItems = computed(() => [
       {
         index: 0,
         type: 'text',
         value: 'Hello',
         name: '',
+        label: 'Text 1',
         isImage: false,
         error: null,
       },
@@ -164,7 +166,7 @@ function createEditor(overrides: {
       isEmpty: computed(() => false),
       readinessLabel: computed(() => 'Workflow ready'),
       readinessTitle: computed(() => 'All workflow checks passed'),
-      readinessSeverity: computed(() => 'success'),
+      isWorkflowReady: computed(() => true),
     },
     canvas: {
       nodes: computed(() => []),
@@ -230,7 +232,9 @@ function createEditor(overrides: {
       focusDetailsPanel: vi.fn(),
       sendMessage: {
         isVisible: computed(() => false),
-        items: computed(() => []),
+        textItems: computed(() => []),
+        attachmentItems: computed(() => []),
+        hasContent: computed(() => false),
         contentError: computed(() => null),
         attachmentError: ref(null),
         addText: vi.fn(),

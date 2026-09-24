@@ -1,3 +1,4 @@
+import { SendIcon } from '@lucide/vue'
 import { render, screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -15,7 +16,7 @@ const editableNode: WorkflowCanvasNodeData = {
   canInsertAfter: true,
   isInsertionMode: false,
   insertionLabel: 'Insert a step after Welcome message',
-  icon: '➤',
+  icon: SendIcon,
   accentClass: 'border-l-emerald-400',
   iconClass: 'bg-emerald-50 text-emerald-600',
 }

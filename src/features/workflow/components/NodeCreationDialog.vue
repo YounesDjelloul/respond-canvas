@@ -9,8 +9,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
+import type { CreatableWorkflowNodeKind } from '../domain'
 
 const {
   creation: {
@@ -55,33 +57,33 @@ const {
           <p class="mt-0.5 text-xs font-medium text-slate-700">{{ context }}</p>
         </div>
 
-        <fieldset>
-          <legend class="text-xs font-medium text-slate-700">Step type</legend>
-          <div class="mt-2 grid gap-2 sm:grid-cols-3">
+        <div class="space-y-2">
+          <span id="node-type-label" class="block text-xs font-medium text-slate-700">
+            Step type
+          </span>
+          <RadioGroup
+            :model-value="kind"
+            aria-labelledby="node-type-label"
+            class="gap-2 sm:grid-cols-3"
+            @update:model-value="updateKind($event as CreatableWorkflowNodeKind)"
+          >
             <label
               v-for="option in typeOptions"
               :key="option.value"
-              class="cursor-pointer rounded-xl border p-3 transition-[border-color,background-color,box-shadow,transform] duration-150 hover:border-slate-300 active:scale-[0.99]"
-              :class="
-                kind === option.value
-                  ? 'border-violet-300 bg-violet-50/60 shadow-sm'
-                  : 'border-slate-200 bg-white'
-              "
+              :for="`node-type-${option.value}`"
+              class="relative cursor-pointer rounded-xl border border-slate-200 bg-white p-3 transition-[border-color,background-color,box-shadow] duration-150 hover:border-slate-300 has-data-checked:border-violet-300 has-data-checked:bg-violet-50/60 has-data-checked:shadow-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
             >
-              <input
-                type="radio"
-                name="node-type"
+              <RadioGroupItem
+                :id="`node-type-${option.value}`"
                 :value="option.value"
-                :checked="kind === option.value"
-                class="sr-only"
-                @change="updateKind(option.value)"
+                class="absolute top-3 right-3"
               />
               <span
-                class="grid size-7 place-items-center rounded-lg text-sm font-semibold"
+                class="grid size-7 place-items-center rounded-lg"
                 :class="option.iconClass"
                 aria-hidden="true"
               >
-                {{ option.icon }}
+                <component :is="option.icon" class="size-3.5" />
               </span>
               <span class="mt-2 block text-xs font-semibold text-slate-900">
                 {{ option.label }}
@@ -90,8 +92,8 @@ const {
                 {{ option.description }}
               </span>
             </label>
-          </div>
-        </fieldset>
+          </RadioGroup>
+        </div>
 
         <div class="space-y-1.5">
           <label for="new-node-title" class="block text-xs font-medium text-slate-700">

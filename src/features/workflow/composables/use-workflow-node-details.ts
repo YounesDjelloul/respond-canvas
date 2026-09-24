@@ -67,6 +67,12 @@ export function useWorkflowNodeDetails({
       error: errorMessageAt(operationErrors.value, ['config', 'parts', item.index]),
     })),
   )
+  const textItems = computed(() =>
+    messageItems.value.filter((item) => item.type === 'text'),
+  )
+  const attachmentItems = computed(() =>
+    messageItems.value.filter((item) => item.type === 'attachment'),
+  )
   const messageContentError = computed(() =>
     errorMessageAt(operationErrors.value, ['config', 'parts']),
   )
@@ -300,7 +306,9 @@ export function useWorkflowNodeDetails({
     handleDescriptionKeydown,
     sendMessage: {
       isVisible: computed(() => currentNode.value?.kind === 'send-message'),
-      items: messageItems,
+      textItems,
+      attachmentItems,
+      hasContent: computed(() => messageItems.value.length > 0),
       contentError: messageContentError,
       attachmentError: sendMessageDraft.attachmentError,
       addText: sendMessageDraft.addText,

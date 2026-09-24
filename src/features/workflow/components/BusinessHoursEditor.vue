@@ -10,6 +10,7 @@ import {
   ComboboxItemIndicator,
   ComboboxList,
 } from '@/components/ui/combobox'
+import { Input } from '@/components/ui/input'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 
 const {
@@ -53,23 +54,16 @@ const {
           <label :for="`start-time-${index}`" class="sr-only">
             {{ dayHours.day }} opening time
           </label>
-          <input
+          <Input
             :id="`start-time-${index}`"
-            :value="dayHours.startTime"
+            :model-value="dayHours.startTime"
             type="time"
             :aria-invalid="hourErrorMessages[index]?.length > 0"
             :aria-describedby="
               hourErrorMessages[index]?.length ? `business-hour-error-${index}` : undefined
             "
-            class="min-w-0 rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150"
-            :class="
-              hourErrorMessages[index]?.length
-                ? 'border-red-300 focus:border-red-400'
-                : 'border-slate-200 hover:border-slate-300 focus:border-violet-400'
-            "
-            @input="
-              updateHour(index, 'startTime', ($event.target as HTMLInputElement).value)
-            "
+            class="min-w-0"
+            @update:model-value="updateHour(index, 'startTime', $event)"
           />
 
           <span class="text-[10px] text-slate-400">to</span>
@@ -77,21 +71,16 @@ const {
           <label :for="`end-time-${index}`" class="sr-only">
             {{ dayHours.day }} closing time
           </label>
-          <input
+          <Input
             :id="`end-time-${index}`"
-            :value="dayHours.endTime"
+            :model-value="dayHours.endTime"
             type="time"
             :aria-invalid="hourErrorMessages[index]?.length > 0"
             :aria-describedby="
               hourErrorMessages[index]?.length ? `business-hour-error-${index}` : undefined
             "
-            class="min-w-0 rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-800 shadow-sm transition-colors duration-150"
-            :class="
-              hourErrorMessages[index]?.length
-                ? 'border-red-300 focus:border-red-400'
-                : 'border-slate-200 hover:border-slate-300 focus:border-violet-400'
-            "
-            @input="updateHour(index, 'endTime', ($event.target as HTMLInputElement).value)"
+            class="min-w-0"
+            @update:model-value="updateHour(index, 'endTime', $event)"
           />
         </div>
         <ul

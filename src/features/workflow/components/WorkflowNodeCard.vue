@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { PlusIcon } from '@lucide/vue'
 import { Handle, Position } from '@vue-flow/core'
+import { Button } from '@/components/ui/button'
 import type { WorkflowCanvasNodeData } from '../types'
 
 defineProps<{
@@ -42,11 +44,11 @@ defineEmits<{
 
       <div class="flex items-start gap-3">
         <span
-          class="grid size-7 shrink-0 place-items-center rounded-lg text-sm font-semibold"
+          class="grid size-7 shrink-0 place-items-center rounded-lg"
           :class="data.iconClass"
           aria-hidden="true"
         >
-          {{ data.icon }}
+          <component :is="data.icon" class="size-3.5" />
         </span>
 
         <div class="min-w-0 flex-1">
@@ -84,15 +86,17 @@ defineEmits<{
       class="absolute left-1/2 top-full flex -translate-x-1/2 flex-col items-center"
     >
       <span class="h-5 w-px bg-slate-300" aria-hidden="true" />
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon-sm"
         :aria-label="data.insertionLabel"
-        class="nodrag nopan grid size-7 place-items-center rounded-full border border-slate-200 bg-white text-base font-medium leading-none text-slate-600 opacity-0 shadow-sm transition-[opacity,transform,box-shadow,border-color,color] duration-150 group-hover:opacity-100 hover:border-violet-300 hover:text-violet-600 hover:shadow-md focus:opacity-100"
+        class="nodrag nopan rounded-full shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         :class="{ 'opacity-100': data.isInsertionMode }"
         @click.stop="$emit('insert-after', id)"
       >
-        <span aria-hidden="true">+</span>
-      </button>
+        <PlusIcon aria-hidden="true" />
+      </Button>
     </div>
   </div>
 </template>

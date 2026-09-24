@@ -61,9 +61,7 @@ export function useWorkflowGraph(
       ? result.errors.map((error) => error.message).join('\n')
       : 'All workflow checks passed'
   })
-  const readinessSeverity = computed<'success' | 'warn'>(() =>
-    readinessResult.value?.ok ? 'success' : 'warn',
-  )
+  const isWorkflowReady = computed(() => readinessResult.value?.ok === true)
 
   function applyGraph(updatedGraph: WorkflowGraph) {
     queryClient.setQueryData(workflowQueryKey, {
@@ -80,7 +78,7 @@ export function useWorkflowGraph(
       isLoading: workflowQuery.isPending,
       readinessLabel,
       readinessTitle,
-      readinessSeverity,
+      isWorkflowReady,
     },
     applyGraph,
   }

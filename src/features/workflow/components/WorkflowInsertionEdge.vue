@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { PlusIcon } from '@lucide/vue'
 import { BaseEdge, EdgeLabelRenderer } from '@vue-flow/core'
+import { Button } from '@/components/ui/button'
 import type { Position } from '@vue-flow/core'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 import { useWorkflowInsertionEdge } from '../composables/use-workflow-insertion-edge'
@@ -43,17 +45,19 @@ const {
     @mouseleave="hideControl"
   />
   <EdgeLabelRenderer>
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="icon-sm"
       :style="buttonStyle"
       :aria-label="data.insertionLabel"
-      class="nodrag nopan pointer-events-auto absolute grid size-7 place-items-center rounded-full border border-slate-200 bg-white text-base font-medium leading-none text-slate-600 shadow-sm transition-[opacity,transform,box-shadow,border-color,color] duration-150 hover:border-violet-300 hover:text-violet-600 hover:shadow-md focus:opacity-100"
+      class="nodrag nopan pointer-events-auto absolute rounded-full shadow-sm focus-visible:opacity-100"
       :class="data.isInsertionMode || isHovered ? 'opacity-100' : 'opacity-0'"
       @mouseenter="showControl"
       @mouseleave="hideControl"
       @click.stop="openCreation(data.insertionPoint)"
     >
-      <span aria-hidden="true">+</span>
-    </button>
+      <PlusIcon aria-hidden="true" />
+    </Button>
   </EdgeLabelRenderer>
 </template>

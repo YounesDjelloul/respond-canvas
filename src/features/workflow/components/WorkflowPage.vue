@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { provideWorkflowEditor } from '../composables/workflow-editor-context'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
@@ -12,7 +13,7 @@ const {
     isLoading,
     readinessLabel,
     readinessTitle,
-    readinessSeverity,
+    isWorkflowReady,
   },
   creation: { isChoosingInsertion, buttonLabel, toggle: toggleInsertion },
 } = provideWorkflowEditor()
@@ -35,24 +36,14 @@ const {
       </div>
 
       <div class="flex items-center gap-2">
-        <span
+        <Badge
+          :variant="isWorkflowReady ? 'success' : 'warning'"
           :title="readinessTitle"
-          class="hidden items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex"
-          :class="
-            readinessSeverity === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
-          "
+          class="hidden h-6 gap-1.5 px-2.5 text-[11px] sm:inline-flex"
         >
-          <span
-            class="size-1.5 rounded-full"
-            :class="
-              readinessSeverity === 'success' ? 'bg-emerald-500' : 'bg-amber-500'
-            "
-            aria-hidden="true"
-          />
+          <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />
           {{ readinessLabel }}
-        </span>
+        </Badge>
         <Button
           :variant="isChoosingInsertion ? 'outline' : 'default'"
           size="sm"

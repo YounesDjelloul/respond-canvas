@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 
 const {
@@ -17,24 +19,18 @@ const {
           Added to the contact profile for teammates.
         </p>
       </div>
-      <button
-        v-if="value"
-        type="button"
-        class="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-red-600 transition-colors duration-150 hover:bg-red-50"
-        @click="clear"
-      >
+      <Button v-if="value" type="button" variant="ghost-destructive" size="sm" @click="clear">
         Clear comment
-      </button>
+      </Button>
     </div>
 
     <label for="node-comment" class="sr-only">Internal comment</label>
-    <textarea
+    <Textarea
       id="node-comment"
-      :value="value"
-      rows="4"
+      :model-value="value"
       placeholder="Add context for your team"
-      class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 shadow-sm transition-colors duration-150 placeholder:text-slate-400 hover:border-slate-300 focus:border-violet-400"
-      @input="update(($event.target as HTMLTextAreaElement).value)"
+      class="min-h-24 resize-none"
+      @update:model-value="update"
     />
   </section>
 </template>

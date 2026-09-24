@@ -67,7 +67,7 @@ function createEditor(state: {
       isEmpty: computed(() => state.isEmpty),
       readinessLabel: computed(() => 'Workflow ready'),
       readinessTitle: computed(() => 'All workflow checks passed'),
-      readinessSeverity: computed(() => 'success'),
+      isWorkflowReady: computed(() => true),
     },
     canvas: {
       nodes: computed(() => []),
@@ -128,7 +128,9 @@ function createEditor(state: {
       focusDetailsPanel: vi.fn(),
       sendMessage: {
         isVisible: computed(() => false),
-        items: computed(() => []),
+        textItems: computed(() => []),
+        attachmentItems: computed(() => []),
+        hasContent: computed(() => false),
         contentError: computed(() => null),
         attachmentError: ref(null),
         addText: vi.fn(),

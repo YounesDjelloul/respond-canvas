@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Background } from '@vue-flow/background'
 import { VueFlow } from '@vue-flow/core'
+import { Button } from '@/components/ui/button'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
 import WorkflowInsertionEdge from './WorkflowInsertionEdge.vue'
 import WorkflowNodeCard from './WorkflowNodeCard.vue'
@@ -49,13 +50,9 @@ const {
       class="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-violet-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-lg backdrop-blur transition-all duration-150"
     >
       <span>Choose where to add the new step</span>
-      <button
-        type="button"
-        class="rounded-md px-2 py-1 font-medium text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
-        @click="cancelInsertion"
-      >
+      <Button type="button" variant="ghost" size="xs" @click="cancelInsertion">
         Cancel
-      </button>
+      </Button>
     </div>
 
     <div

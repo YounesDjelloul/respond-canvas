@@ -16,6 +16,10 @@ export function useSendMessageDraft(clearErrors: () => void) {
       type: part.type,
       value: part.value,
       name: part.type === 'attachment' ? part.name ?? attachmentName(part.value) : '',
+      label:
+        part.type === 'text'
+          ? `Text ${textPosition(parts.value, index)}`
+          : part.name ?? attachmentName(part.value),
       isImage:
         part.type === 'attachment' &&
         (part.mimeType?.startsWith('image/') === true || isImageUrl(part.value)),
@@ -105,6 +109,10 @@ export function useSendMessageDraft(clearErrors: () => void) {
     removePart,
     addAttachments,
   }
+}
+
+function textPosition(parts: readonly WorkflowMessagePart[], index: number): number {
+  return parts.slice(0, index + 1).filter((part) => part.type === 'text').length
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

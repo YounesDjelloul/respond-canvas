@@ -1,3 +1,4 @@
+import type { Component } from 'vue'
 import type { Edge, Node } from '@vue-flow/core'
 import type {
   CreatableWorkflowNodeKind,
@@ -17,7 +18,7 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   canInsertAfter: boolean
   isInsertionMode: boolean
   insertionLabel: string
-  icon: string
+  icon: Component
   accentClass: string
   iconClass: string
 }
@@ -36,7 +37,7 @@ export interface WorkflowNodeTypeOption {
   value: CreatableWorkflowNodeKind
   label: string
   description: string
-  icon: string
+  icon: Component
   iconClass: string
 }
 
@@ -45,6 +46,7 @@ export interface WorkflowMessageDraftItem {
   type: 'text' | 'attachment'
   value: string
   name: string
+  label: string
   isImage: boolean
   error: string | null
 }

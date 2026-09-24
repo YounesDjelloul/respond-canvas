@@ -1,3 +1,4 @@
+import { SendIcon } from '@lucide/vue'
 import { defineComponent, h } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { createPinia } from 'pinia'
@@ -67,6 +68,7 @@ describe('useWorkflowEditor', () => {
 
     expect(model.status.errorMessage.value).toBeNull()
     expect(model.status.readinessLabel.value).toBe('Workflow ready')
+    expect(model.status.isWorkflowReady.value).toBe(true)
     expect(model.canvas.nodes.value).toEqual([
       expect.objectContaining({
         id: '1',
@@ -98,7 +100,7 @@ describe('useWorkflowEditor', () => {
       CREATABLE_WORKFLOW_NODE_KINDS,
     )
     expect(model.canvas.nodes.value[1]?.data).toMatchObject({
-      icon: '➤',
+      icon: SendIcon,
       accentClass: 'border-l-emerald-400',
       iconClass: 'bg-emerald-50 text-emerald-600',
     })
@@ -204,6 +206,58 @@ describe('useWorkflowEditor', () => {
     })
   })
 
+  it('lists texts and attachments separately while keeping their stored order', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => [
+        validPayload[0],
+        {
+          ...validPayload[1],
+          data: {
+            payload: [
+              { type: 'text', text: 'Hello' },
+              { type: 'attachment', attachment: 'https://cdn.example.com/menu.pdf' },
+              { type: 'text', text: 'See the menu' },
+            ],
+          },
+        },
+      ],
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    expect(model.details.sendMessage.hasContent.value).toBe(true)
+    expect(
+      model.details.sendMessage.textItems.value.map(({ index, label }) => ({ index, label })),
+    ).toEqual([
+      { index: 0, label: 'Text 1' },
+      { index: 2, label: 'Text 2' },
+    ])
+    expect(
+      model.details.sendMessage.attachmentItems.value.map(({ index, label }) => ({
+        index,
+        label,
+      })),
+    ).toEqual([{ index: 1, label: 'menu.pdf' }])
+
+    model.details.sendMessage.updateText(2, 'See the updated menu')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(model.details.selectedNode.value).toMatchObject({
+        config: {
+          parts: [
+            { type: 'text', value: 'Hello' },
+            { type: 'attachment', value: 'https://cdn.example.com/menu.pdf' },
+            { type: 'text', value: 'See the updated menu' },
+          ],
+        },
+      })
+    })
+  })
+
   it('owns inline editing state and restores cancelled field changes', async () => {
     const repository: WorkflowRepository = {
       getWorkflow: async () => validPayload,
@@ -284,7 +338,7 @@ describe('useWorkflowEditor', () => {
     model.details.save()
 
     await waitFor(() => {
-      expect(model.details.sendMessage.items.value[0]?.error).toBe(
+      expect(model.details.sendMessage.textItems.value[0]?.error).toBe(
         'Message text cannot be empty',
       )
     })
@@ -296,14 +350,14 @@ describe('useWorkflowEditor', () => {
     await waitFor(() => {
       expect(model.details.titleError.value).toBe('Title is required')
     })
-    expect(model.details.sendMessage.items.value[0]?.error).toBe(
+    expect(model.details.sendMessage.textItems.value[0]?.error).toBe(
       'Message text cannot be empty',
     )
 
     model.details.updateTitle('Welcome')
 
     expect(model.details.titleError.value).toBeNull()
-    expect(model.details.sendMessage.items.value[0]?.error).toBe(
+    expect(model.details.sendMessage.textItems.value[0]?.error).toBe(
       'Message text cannot be empty',
     )
 
@@ -444,6 +498,7 @@ describe('useWorkflowEditor', () => {
     expect(insertedNode?.kind).toBe('send-message')
     expect(model.creation.isOpen.value).toBe(false)
     expect(model.status.readinessLabel.value).toBe('1 issue')
+    expect(model.status.isWorkflowReady.value).toBe(false)
     expect(router.currentRoute.value.fullPath).toBe(`/nodes/${insertedNode?.id}`)
     expect(model.canvas.edges.value).toEqual(
       expect.arrayContaining([
@@ -493,6 +548,7 @@ describe('useWorkflowEditor', () => {
       )?.type,
     ).toBe('smoothstep')
     expect(model.status.readinessLabel.value).toBe('1 issue')
+    expect(model.status.isWorkflowReady.value).toBe(false)
     expect(model.status.readinessTitle.value).toBe(
       'Failure requires at least one workflow step',
     )
