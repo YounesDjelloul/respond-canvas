@@ -20,6 +20,8 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   insertionLabel: string
   showsDeleteControl: boolean
   deleteLabel: string
+  issueLabel: string | null
+  accessibleLabel: string
   icon: Component
   accentClass: string
   iconClass: string
@@ -34,6 +36,16 @@ export interface WorkflowCanvasEdgeData extends Record<string, unknown> {
 }
 
 export type WorkflowCanvasEdge = Edge<WorkflowCanvasEdgeData>
+
+export interface WorkflowReadinessGroupView {
+  key: string
+  title: string
+  icon: Component | null
+  iconClass: string
+  messages: string[]
+  fixLabel: 'Open step' | 'Add step' | null
+  fixAriaLabel: string | null
+}
 
 export interface WorkflowNodeTypeOption {
   value: CreatableWorkflowNodeKind

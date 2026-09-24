@@ -4,6 +4,7 @@ export {
   countWorkflowNodeDescendants,
   deleteWorkflowNode,
 } from './delete-workflow-node'
+export { groupWorkflowReadinessIssues } from './group-workflow-readiness-issues'
 export { insertWorkflowNode } from './insert-workflow-node'
 export { updateWorkflowNode } from './update-workflow-node'
 export { updateWorkflowNodePosition } from './update-workflow-node-position'
@@ -38,5 +39,8 @@ export type {
   WorkflowPosition,
   WorkflowReadinessError,
   WorkflowReadinessErrorCode,
+  WorkflowReadinessFix,
+  WorkflowReadinessIssue,
+  WorkflowReadinessIssueGroup,
   WorkflowTextPart,
 } from './types'

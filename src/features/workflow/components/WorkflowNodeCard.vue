@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, Trash2Icon } from '@lucide/vue'
+import { PlusIcon, Trash2Icon, TriangleAlertIcon } from '@lucide/vue'
 import { Handle, Position } from '@vue-flow/core'
 import { Button } from '@/components/ui/button'
 import type { WorkflowCanvasNodeData } from '../types'
@@ -31,7 +31,7 @@ defineEmits<{
       :role="data.editable ? 'button' : 'group'"
       :tabindex="data.editable ? 0 : -1"
       :data-workflow-node-id="id"
-      :aria-label="`${data.title}. ${data.description}`"
+      :aria-label="data.accessibleLabel"
       @keydown.enter.prevent="data.editable && $emit('keyboard-open', id)"
       @keydown.space.prevent="data.editable && $emit('keyboard-open', id)"
       @keydown.delete.prevent="$emit('request-delete', id)"
@@ -58,6 +58,11 @@ defineEmits<{
             <h2 class="truncate text-[13px] font-semibold leading-5 text-slate-900">
               {{ data.title }}
             </h2>
+            <TriangleAlertIcon
+              v-if="data.issueLabel"
+              class="size-3.5 shrink-0 text-amber-500"
+              aria-hidden="true"
+            />
             <span
               v-if="!data.editable"
               class="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-500"

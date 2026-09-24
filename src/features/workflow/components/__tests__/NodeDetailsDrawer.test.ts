@@ -162,9 +162,6 @@ function createEditor(): WorkflowEditorController {
       isLoading: ref(false),
       errorMessage: computed(() => null),
       isEmpty: computed(() => false),
-      readinessLabel: computed(() => 'Workflow ready'),
-      readinessTitle: computed(() => 'All workflow checks passed'),
-      isWorkflowReady: computed(() => true),
     },
     canvas: {
       nodes: computed(() => []),
@@ -197,6 +194,18 @@ function createEditor(): WorkflowEditorController {
       updateTitle: vi.fn(),
       updateDescription: vi.fn(),
       submit: vi.fn(),
+    },
+    readiness: {
+      isReady: computed(() => true),
+      hasIssues: computed(() => false),
+      label: computed(() => 'Workflow ready'),
+      summary: computed(() => ''),
+      isOpen: ref(false),
+      groups: computed(() => []),
+      issueCounts: computed(() => new Map()),
+      setOpen: vi.fn(),
+      applyFix: vi.fn(),
+      fieldErrorsFor: vi.fn(() => []),
     },
     deletion: {
       isOpen: computed(() => false),

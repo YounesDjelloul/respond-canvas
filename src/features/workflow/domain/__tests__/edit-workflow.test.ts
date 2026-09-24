@@ -3,6 +3,7 @@ import {
   canQuickDeleteWorkflowNode,
   countWorkflowNodeDescendants,
   createWorkflowGraph,
+  groupWorkflowReadinessIssues,
   deleteWorkflowNode,
   insertWorkflowNode,
   updateWorkflowNodePosition,
@@ -276,6 +277,114 @@ describe('workflow editing', () => {
     expect(canQuickDeleteWorkflowNode(nodesById.get('hours')!)).toBe(true)
     expect(canQuickDeleteWorkflowNode(nodesById.get('root')!)).toBe(false)
     expect(canQuickDeleteWorkflowNode(nodesById.get('branch')!)).toBe(false)
+  })
+
+  it('groups readiness issues by step with field paths relative to the step', () => {
+    const graph = validGraph()
+    const groups = groupWorkflowReadinessIssues(graph, [
+      {
+        code: 'message-text-required',
+        message: 'Message text cannot be empty',
+        path: ['nodes', 'message', 'config', 'parts', 0],
+      },
+      {
+        code: 'workflow-trigger-count-invalid',
+        message: 'The workflow must contain exactly one trigger',
+        path: ['nodes'],
+      },
+      {
+        code: 'title-required',
+        message: 'Title is required',
+        path: ['nodes', 'message', 'title'],
+      },
+      {
+        code: 'outgoing-path-required',
+        message: 'Business Hours requires at least one workflow step',
+        path: ['nodes', 'hours'],
+      },
+    ])
+
+    expect(
+      groups.map((group) => ({
+        nodeId: group.node?.id ?? null,
+        fix: group.fix,
+        issues: group.issues.map(({ code, fieldPath }) => ({ code, fieldPath })),
+      })),
+    ).toEqual([
+      {
+        nodeId: null,
+        fix: 'none',
+        issues: [{ code: 'workflow-trigger-count-invalid', fieldPath: [] }],
+      },
+      {
+        nodeId: 'message',
+        fix: 'open-node',
+        issues: [
+          { code: 'message-text-required', fieldPath: ['config', 'parts', 0] },
+          { code: 'title-required', fieldPath: ['title'] },
+        ],
+      },
+      {
+        nodeId: 'hours',
+        fix: 'add-step',
+        issues: [{ code: 'outgoing-path-required', fieldPath: [] }],
+      },
+    ])
+  })
+
+  it('chooses the readiness fix that can resolve each step', () => {
+    const graph = validGraph()
+    const fixes = groupWorkflowReadinessIssues(graph, [
+      {
+        code: 'outgoing-path-required',
+        message: 'Success requires at least one workflow step',
+        path: ['nodes', 'branch'],
+      },
+      {
+        code: 'outgoing-path-required',
+        message: 'Conversation opened requires at least one workflow step',
+        path: ['nodes', 'root'],
+      },
+      {
+        code: 'description-required',
+        message: 'Description is required',
+        path: ['nodes', 'root', 'description'],
+      },
+      {
+        code: 'business-connectors-invalid',
+        message: 'Business Hours requires one Success and one Failure branch',
+        path: ['nodes', 'hours', 'config', 'connectorIds'],
+      },
+    ]).map((group) => [group.node?.id, group.fix])
+
+    expect(fixes).toEqual([
+      ['root', 'open-node'],
+      ['branch', 'add-step'],
+      ['hours', 'open-node'],
+    ])
+  })
+
+  it('merges duplicate readiness issues and keeps unknown steps at workflow level', () => {
+    const duplicate = {
+      code: 'message-content-required' as const,
+      message: 'Add at least one message or attachment',
+      path: ['nodes', 'message', 'config', 'parts'],
+    }
+    const groups = groupWorkflowReadinessIssues(validGraph(), [
+      duplicate,
+      duplicate,
+      {
+        code: 'node-not-found',
+        message: 'The selected node no longer exists',
+        path: ['nodes', 'missing'],
+      },
+    ])
+
+    expect(groups.map((group) => [group.node?.id ?? null, group.issues.length])).toEqual([
+      [null, 1],
+      ['message', 1],
+    ])
+    expect(groupWorkflowReadinessIssues(validGraph(), [])).toEqual([])
   })
 
   it('updates a dragged node position without mutating the source graph', () => {

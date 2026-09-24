@@ -11,7 +11,7 @@ import {
   updateWorkflowNode,
   type UpdateWorkflowNodeInput,
   type WorkflowGraph,
-  type WorkflowMutationError,
+  type WorkflowReadinessError,
   type WorkflowNode,
 } from '../domain'
 import { workflowNodePresentationFor } from '../presentation/workflow-node-presentation'
@@ -25,6 +25,7 @@ interface WorkflowNodeDetailsDependencies {
   closeNode: (focusNodeId?: string | null) => Promise<void>
   setVisibility: (visible: boolean) => void
   requestDeletion: (nodeId: string) => void
+  readinessErrorsFor: (nodeId: string) => WorkflowReadinessError[]
 }
 
 export function useWorkflowNodeDetails({
@@ -34,11 +35,12 @@ export function useWorkflowNodeDetails({
   closeNode,
   setVisibility,
   requestDeletion,
+  readinessErrorsFor,
 }: WorkflowNodeDetailsDependencies) {
   const title = ref('')
   const description = ref('')
   const comment = ref('')
-  const operationErrors = ref<readonly WorkflowMutationError[]>([])
+  const operationErrors = ref<readonly WorkflowReadinessError[]>([])
   const editingField = ref<'title' | 'description' | null>(null)
   const fieldValueBeforeEditing = ref('')
   const sendMessageDraft = useSendMessageDraft(clearContentErrors)
@@ -108,7 +110,7 @@ export function useWorkflowNodeDetails({
       comment.value = node?.kind === 'add-comment' ? node.config.comment : ''
       sendMessageDraft.reset(node)
       businessHoursDraft.reset(node)
-      operationErrors.value = []
+      operationErrors.value = node ? readinessErrorsFor(node.id) : []
       editingField.value = null
       fieldValueBeforeEditing.value = ''
     },

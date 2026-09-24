@@ -192,3 +192,17 @@ export type WorkflowReadinessErrorCode =
   | 'outgoing-path-required'
 
 export type WorkflowReadinessError = DomainError<WorkflowReadinessErrorCode>
+
+export type WorkflowReadinessFix = 'open-node' | 'add-step' | 'none'
+
+export interface WorkflowReadinessIssue {
+  code: WorkflowReadinessErrorCode
+  message: string
+  fieldPath: readonly (string | number)[]
+}
+
+export interface WorkflowReadinessIssueGroup {
+  node: WorkflowNode | null
+  fix: WorkflowReadinessFix
+  issues: readonly WorkflowReadinessIssue[]
+}

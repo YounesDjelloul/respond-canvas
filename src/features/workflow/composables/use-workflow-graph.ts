@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { workflowRepository } from '../data/workflow-repository'
 import type { WorkflowRepository } from '../data/types'
-import { createWorkflowGraph, validateWorkflowReadiness } from '../domain'
+import { createWorkflowGraph } from '../domain'
 import type { WorkflowGraph } from '../domain'
 
 const workflowQueryKey = ['workflow'] as const
@@ -38,31 +38,6 @@ export function useWorkflowGraph(
       !errorMessage.value &&
       graph.value?.nodes.length === 0,
   )
-  const readinessResult = computed(() =>
-    graph.value ? validateWorkflowReadiness(graph.value) : null,
-  )
-  const readinessLabel = computed(() => {
-    const result = readinessResult.value
-
-    if (!result) {
-      return 'Checking workflow'
-    }
-
-    if (result.ok) {
-      return 'Workflow ready'
-    }
-
-    const issueCount = result.errors.length
-    return `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`
-  })
-  const readinessTitle = computed(() => {
-    const result = readinessResult.value
-    return result && !result.ok
-      ? result.errors.map((error) => error.message).join('\n')
-      : 'All workflow checks passed'
-  })
-  const isWorkflowReady = computed(() => readinessResult.value?.ok === true)
-
   function applyGraph(updatedGraph: WorkflowGraph) {
     queryClient.setQueryData(workflowQueryKey, {
       ok: true,
@@ -76,9 +51,6 @@ export function useWorkflowGraph(
       errorMessage,
       isEmpty,
       isLoading: workflowQuery.isPending,
-      readinessLabel,
-      readinessTitle,
-      isWorkflowReady,
     },
     applyGraph,
   }

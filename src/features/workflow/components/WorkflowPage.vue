@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { provideWorkflowEditor } from '../composables/workflow-editor-context'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
 import NodeCreationDialog from './NodeCreationDialog.vue'
 import NodeDeleteDialog from './NodeDeleteDialog.vue'
+import ReadinessPopover from './ReadinessPopover.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
 
 const {
@@ -12,9 +12,6 @@ const {
     errorMessage,
     isEmpty,
     isLoading,
-    readinessLabel,
-    readinessTitle,
-    isWorkflowReady,
   },
   creation: { isChoosingInsertion, buttonLabel, toggle: toggleInsertion },
 } = provideWorkflowEditor()
@@ -37,14 +34,7 @@ const {
       </div>
 
       <div class="flex items-center gap-2">
-        <Badge
-          :variant="isWorkflowReady ? 'success' : 'warning'"
-          :title="readinessTitle"
-          class="h-6 gap-1.5 px-2 text-[11px] sm:px-2.5"
-        >
-          <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />
-          <span class="sr-only sm:not-sr-only">{{ readinessLabel }}</span>
-        </Badge>
+        <ReadinessPopover />
         <Button
           :variant="isChoosingInsertion ? 'outline' : 'default'"
           size="sm"

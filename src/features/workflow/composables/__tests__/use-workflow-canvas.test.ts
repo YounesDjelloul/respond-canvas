@@ -67,8 +67,13 @@ describe('useWorkflowEditor', () => {
     })
 
     expect(model.status.errorMessage.value).toBeNull()
-    expect(model.status.readinessLabel.value).toBe('Workflow ready')
-    expect(model.status.isWorkflowReady.value).toBe(true)
+    expect(model.readiness.label.value).toBe('Workflow ready')
+    expect(model.readiness.isReady.value).toBe(true)
+    expect(model.readiness.hasIssues.value).toBe(false)
+
+    model.readiness.setOpen(true)
+
+    expect(model.readiness.isOpen.value).toBe(false)
     expect(model.canvas.nodes.value).toEqual([
       expect.objectContaining({
         id: '1',
@@ -501,8 +506,27 @@ describe('useWorkflowEditor', () => {
     const insertedNode = model.details.selectedNode.value
     expect(insertedNode?.kind).toBe('send-message')
     expect(model.creation.isOpen.value).toBe(false)
-    expect(model.status.readinessLabel.value).toBe('1 issue')
-    expect(model.status.isWorkflowReady.value).toBe(false)
+    expect(model.readiness.label.value).toBe('1 issue')
+    expect(model.readiness.isReady.value).toBe(false)
+    expect(model.readiness.summary.value).toBe('1 issue to fix before this workflow is ready')
+    expect(model.readiness.groups.value).toEqual([
+      expect.objectContaining({
+        key: insertedNode?.id,
+        title: 'Qualify contact',
+        messages: ['Add at least one message or attachment'],
+        fixLabel: 'Open step',
+        fixAriaLabel: 'Open Qualify contact',
+      }),
+    ])
+    expect(model.details.sendMessage.contentError.value).toBe(
+      'Add at least one message or attachment',
+    )
+    expect(
+      model.canvas.nodes.value.find((node) => node.id === insertedNode?.id)?.data,
+    ).toMatchObject({
+      issueLabel: '1 issue',
+      accessibleLabel: 'Qualify contact. Add context before greeting. 1 issue',
+    })
     expect(router.currentRoute.value.fullPath).toBe(`/nodes/${insertedNode?.id}`)
     expect(model.canvas.edges.value).toEqual(
       expect.arrayContaining([
@@ -551,11 +575,25 @@ describe('useWorkflowEditor', () => {
         (edge) => edge.source === businessHoursNode.id && edge.target === successId,
       )?.type,
     ).toBe('smoothstep')
-    expect(model.status.readinessLabel.value).toBe('1 issue')
-    expect(model.status.isWorkflowReady.value).toBe(false)
-    expect(model.status.readinessTitle.value).toBe(
-      'Failure requires at least one workflow step',
-    )
+    expect(model.readiness.label.value).toBe('1 issue')
+    expect(model.readiness.groups.value).toEqual([
+      expect.objectContaining({
+        key: failureId,
+        title: 'Failure',
+        messages: ['Failure requires at least one workflow step'],
+        fixLabel: 'Add step',
+        fixAriaLabel: 'Add a step after Failure',
+      }),
+    ])
+
+    model.readiness.setOpen(true)
+    expect(model.readiness.isOpen.value).toBe(true)
+
+    model.readiness.applyFix(failureId!)
+
+    expect(model.readiness.isOpen.value).toBe(false)
+    expect(model.creation.isOpen.value).toBe(true)
+    expect(model.creation.context.value).toContain('Failure')
   })
 
   it('keeps creation open and presents validation failures', async () => {

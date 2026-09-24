@@ -15,6 +15,7 @@ import type { WorkflowCanvasEdge, WorkflowCanvasNode } from '../types'
 
 interface WorkflowCanvasDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
+  issueCounts: MaybeRefOrGetter<ReadonlyMap<string, number>>
   selectedNode: MaybeRefOrGetter<WorkflowNode | null>
   isChoosingInsertion: MaybeRefOrGetter<boolean>
   openNode: (nodeId: string) => void
@@ -25,6 +26,7 @@ interface WorkflowCanvasDependencies {
 
 export function useWorkflowCanvas({
   graph,
+  issueCounts,
   selectedNode,
   isChoosingInsertion,
   openNode,
@@ -46,6 +48,9 @@ export function useWorkflowCanvas({
     )
 
     return currentGraph.nodes.map((node) => {
+      const issueCount = toValue(issueCounts).get(node.id) ?? 0
+      const issueLabel =
+        issueCount > 0 ? `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}` : null
       const kindPresentation = workflowNodePresentationFor(node.kind)
       const accentPresentation = workflowAccentPresentationFor(node.accent)
 
@@ -78,6 +83,10 @@ export function useWorkflowCanvas({
           showsDeleteControl:
             canQuickDeleteWorkflowNode(node) && !toValue(isChoosingInsertion),
           deleteLabel: `Delete ${node.title}`,
+          issueLabel,
+          accessibleLabel: [node.title, node.description, issueLabel]
+            .filter(Boolean)
+            .join('. '),
           icon: kindPresentation.icon,
           accentClass: accentPresentation.accentClass,
           iconClass: accentPresentation.iconClass,

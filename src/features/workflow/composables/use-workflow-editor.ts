@@ -5,6 +5,7 @@ import { useWorkflowGraph } from './use-workflow-graph'
 import { useWorkflowNodeCreation } from './use-workflow-node-creation'
 import { useWorkflowNodeDeletion } from './use-workflow-node-deletion'
 import { useWorkflowNodeDetails } from './use-workflow-node-details'
+import { useWorkflowReadiness } from './use-workflow-readiness'
 import { useWorkflowSelection } from './use-workflow-selection'
 
 export function useWorkflowEditor(
@@ -20,8 +21,14 @@ export function useWorkflowEditor(
     applyGraph: workflow.applyGraph,
     openNode: selection.openNode,
   })
+  const readiness = useWorkflowReadiness({
+    graph: workflow.graph,
+    openNode: selection.openNode,
+    openCreationAfter: creation.openAfter,
+  })
   const canvas = useWorkflowCanvas({
     graph: workflow.graph,
+    issueCounts: readiness.issueCounts,
     selectedNode: selection.selectedNode,
     isChoosingInsertion: creation.isChoosingInsertion,
     openNode: selection.openNode,
@@ -41,6 +48,7 @@ export function useWorkflowEditor(
     closeNode: selection.closeNode,
     setVisibility: selection.setDetailsVisibility,
     requestDeletion: deletion.requestFromDetails,
+    readinessErrorsFor: readiness.fieldErrorsFor,
   })
 
   return {
@@ -49,6 +57,7 @@ export function useWorkflowEditor(
     creation: creation.controller,
     details,
     deletion,
+    readiness,
   }
 }
 

@@ -18,6 +18,8 @@ const editableNode: WorkflowCanvasNodeData = {
   insertionLabel: 'Insert a step after Welcome message',
   showsDeleteControl: true,
   deleteLabel: 'Delete Welcome message',
+  issueLabel: null,
+  accessibleLabel: 'Welcome message. Say hello',
   icon: SendIcon,
   accentClass: 'border-l-emerald-400',
   iconClass: 'bg-emerald-50 text-emerald-600',
