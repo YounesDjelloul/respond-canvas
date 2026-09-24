@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PaperclipIcon, PlusIcon, Trash2Icon, UploadIcon } from '@lucide/vue'
+import { FileIcon, PlusIcon, Trash2Icon, UploadIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkflowEditorContext } from '../composables/workflow-editor-context'
@@ -120,41 +120,43 @@ const {
       >
         Attachments
       </h4>
-      <ul class="divide-y divide-border rounded-lg border border-input">
-        <li
-          v-for="item in attachmentItems"
-          :key="item.index"
-          class="group flex items-center gap-3 p-2"
-        >
-          <img
-            v-if="item.isImage"
-            :src="item.value"
-            :alt="item.name"
-            class="size-10 rounded-md object-cover"
-          />
-          <span
-            v-else
-            class="grid size-10 place-items-center rounded-md bg-muted text-muted-foreground"
-            aria-hidden="true"
+      <ul class="flex flex-wrap gap-2">
+        <li v-for="item in attachmentItems" :key="item.index" class="group w-24 space-y-1">
+          <div
+            class="relative aspect-square overflow-hidden rounded-lg border bg-muted"
+            :class="item.error ? 'border-destructive' : 'border-input'"
           >
-            <PaperclipIcon class="size-4" />
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-slate-800">{{ item.name }}</p>
-            <p v-if="item.error" role="alert" class="text-[11px] text-red-600">
-              {{ item.error }}
-            </p>
+            <img
+              v-if="item.isImage"
+              :src="item.value"
+              :alt="item.name"
+              class="size-full object-cover"
+            />
+            <div
+              v-else
+              class="flex size-full flex-col items-center justify-center gap-1.5 text-muted-foreground"
+              aria-hidden="true"
+            >
+              <FileIcon class="size-5" />
+              <span class="text-[10px] font-semibold uppercase tracking-[0.08em]">
+                {{ item.extension }}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-xs"
+              :aria-label="`Remove ${item.label}`"
+              class="absolute top-1.5 right-1.5 bg-background/90 text-destructive opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-destructive pointer-coarse:opacity-100"
+              @click="removePart(item.index)"
+            >
+              <Trash2Icon aria-hidden="true" />
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="ghost-destructive"
-            size="icon-xs"
-            :aria-label="`Remove ${item.label}`"
-            class="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
-            @click="removePart(item.index)"
-          >
-            <Trash2Icon aria-hidden="true" />
-          </Button>
+          <p class="truncate text-[11px] text-slate-600" :title="item.name">{{ item.name }}</p>
+          <p v-if="item.error" role="alert" class="text-[11px] text-red-600">
+            {{ item.error }}
+          </p>
         </li>
       </ul>
     </section>

@@ -236,11 +236,12 @@ describe('useWorkflowEditor', () => {
       { index: 2, label: 'Text 2' },
     ])
     expect(
-      model.details.sendMessage.attachmentItems.value.map(({ index, label }) => ({
+      model.details.sendMessage.attachmentItems.value.map(({ index, label, extension }) => ({
         index,
         label,
+        extension,
       })),
-    ).toEqual([{ index: 1, label: 'menu.pdf' }])
+    ).toEqual([{ index: 1, label: 'menu.pdf', extension: 'pdf' }])
 
     model.details.sendMessage.updateText(2, 'See the updated menu')
     model.details.save()
@@ -579,6 +580,105 @@ describe('useWorkflowEditor', () => {
 
     expect(model.creation.titleError.value).toBeNull()
     expect(model.creation.descriptionError.value).toBe('Description is required')
+  })
+
+  it('confirms canvas deletion of a step and everything after it', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    model.deletion.request('message')
+
+    expect(model.deletion.isOpen.value).toBe(true)
+    expect(model.deletion.title.value).toBe('Delete “Welcome”?')
+    expect(model.deletion.message.value).toBe(
+      'This step and the 1 step after it will be removed.',
+    )
+
+    model.deletion.confirm()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.map((node) => node.id)).toEqual(['1', 'hours'])
+    })
+    expect(model.deletion.isOpen.value).toBe(false)
+  })
+
+  it('keeps the workflow unchanged when deletion is cancelled or not allowed', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    model.deletion.request('1')
+    expect(model.deletion.isOpen.value).toBe(false)
+
+    model.deletion.request('comment')
+    expect(model.deletion.message.value).toBe(
+      'This step will be removed from the workflow.',
+    )
+
+    model.deletion.setVisibility(false)
+
+    expect(model.deletion.isOpen.value).toBe(false)
+    expect(model.canvas.nodes.value).toHaveLength(4)
+  })
+
+  it('closes the details route when the open node is deleted from the canvas', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/comment')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    model.deletion.request('comment')
+    model.deletion.confirm()
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.name).toBe('workflow')
+    })
+    expect(model.details.isOpen.value).toBe(false)
+  })
+
+  it('shows canvas delete controls only for removable steps outside insertion mode', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    const controlsById = () =>
+      Object.fromEntries(
+        model.canvas.nodes.value.map((node) => [node.id, node.data?.showsDeleteControl]),
+      )
+
+    expect(controlsById()).toEqual({
+      '1': false,
+      message: true,
+      comment: true,
+      hours: true,
+    })
+    expect(model.canvas.nodes.value[1]?.data?.deleteLabel).toBe('Delete Welcome')
+
+    model.creation.toggle()
+
+    await waitFor(() => {
+      expect(Object.values(controlsById()).every((shown) => !shown)).toBe(true)
+    })
   })
 })
 

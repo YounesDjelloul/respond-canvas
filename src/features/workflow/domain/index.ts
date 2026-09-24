@@ -1,5 +1,9 @@
 export { createWorkflowGraph } from './create-workflow-graph'
-export { deleteWorkflowNode } from './delete-workflow-node'
+export {
+  canQuickDeleteWorkflowNode,
+  countWorkflowNodeDescendants,
+  deleteWorkflowNode,
+} from './delete-workflow-node'
 export { insertWorkflowNode } from './insert-workflow-node'
 export { updateWorkflowNode } from './update-workflow-node'
 export { updateWorkflowNodePosition } from './update-workflow-node-position'

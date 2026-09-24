@@ -16,6 +16,10 @@ export function useSendMessageDraft(clearErrors: () => void) {
       type: part.type,
       value: part.value,
       name: part.type === 'attachment' ? part.name ?? attachmentName(part.value) : '',
+      extension:
+        part.type === 'attachment'
+          ? fileExtension(part.name ?? attachmentName(part.value))
+          : '',
       label:
         part.type === 'text'
           ? `Text ${textPosition(parts.value, index)}`
@@ -109,6 +113,12 @@ export function useSendMessageDraft(clearErrors: () => void) {
     removePart,
     addAttachments,
   }
+}
+
+function fileExtension(name: string): string {
+  const extension = name.includes('.') ? name.split('.').at(-1) : undefined
+
+  return extension ? extension.slice(0, 4) : 'File'
 }
 
 function textPosition(parts: readonly WorkflowMessagePart[], index: number): number {

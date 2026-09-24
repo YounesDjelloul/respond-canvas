@@ -6,7 +6,7 @@ import type {
   WorkflowInsertionPoint,
   WorkflowNode,
 } from '../domain'
-import { updateWorkflowNodePosition } from '../domain'
+import { canQuickDeleteWorkflowNode, updateWorkflowNodePosition } from '../domain'
 import {
   workflowAccentPresentationFor,
   workflowNodePresentationFor,
@@ -75,6 +75,9 @@ export function useWorkflowCanvas({
           canInsertAfter: !parentIds.has(node.id),
           isInsertionMode: toValue(isChoosingInsertion),
           insertionLabel: `Insert a step after ${node.title}`,
+          showsDeleteControl:
+            canQuickDeleteWorkflowNode(node) && !toValue(isChoosingInsertion),
+          deleteLabel: `Delete ${node.title}`,
           icon: kindPresentation.icon,
           accentClass: accentPresentation.accentClass,
           iconClass: accentPresentation.iconClass,

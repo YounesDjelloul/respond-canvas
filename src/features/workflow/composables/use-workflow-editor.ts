@@ -3,6 +3,7 @@ import type { WorkflowRepository } from '../data/types'
 import { useWorkflowCanvas } from './use-workflow-canvas'
 import { useWorkflowGraph } from './use-workflow-graph'
 import { useWorkflowNodeCreation } from './use-workflow-node-creation'
+import { useWorkflowNodeDeletion } from './use-workflow-node-deletion'
 import { useWorkflowNodeDetails } from './use-workflow-node-details'
 import { useWorkflowSelection } from './use-workflow-selection'
 
@@ -28,6 +29,11 @@ export function useWorkflowEditor(
     openCreationAfter: creation.openAfter,
     applyGraph: workflow.applyGraph,
   })
+  const deletion = useWorkflowNodeDeletion({
+    graph: workflow.graph,
+    applyGraph: workflow.applyGraph,
+    closeNode: selection.closeNode,
+  })
   const details = useWorkflowNodeDetails({
     graph: workflow.graph,
     selectedNode: selection.selectedNode,
@@ -41,6 +47,7 @@ export function useWorkflowEditor(
     canvas,
     creation: creation.controller,
     details,
+    deletion,
   }
 }
 

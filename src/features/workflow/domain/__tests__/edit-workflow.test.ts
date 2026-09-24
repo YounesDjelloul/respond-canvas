@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canQuickDeleteWorkflowNode,
+  countWorkflowNodeDescendants,
   createWorkflowGraph,
   deleteWorkflowNode,
   insertWorkflowNode,
@@ -256,6 +258,24 @@ describe('workflow editing', () => {
       { id: 'root:branch', source: 'root', target: 'branch' },
       { id: 'root:hours', source: 'root', target: 'hours' },
     ])
+  })
+
+  it('counts every step that would be removed after a node', () => {
+    const graph = validGraph()
+
+    expect(countWorkflowNodeDescendants(graph, 'message')).toBe(1)
+    expect(countWorkflowNodeDescendants(graph, 'comment')).toBe(0)
+    expect(countWorkflowNodeDescendants(graph, 'root')).toBe(4)
+    expect(countWorkflowNodeDescendants(graph, 'missing')).toBe(0)
+  })
+
+  it('allows quick deletion only for editable steps other than the trigger', () => {
+    const nodesById = new Map(validGraph().nodes.map((node) => [node.id, node]))
+
+    expect(canQuickDeleteWorkflowNode(nodesById.get('message')!)).toBe(true)
+    expect(canQuickDeleteWorkflowNode(nodesById.get('hours')!)).toBe(true)
+    expect(canQuickDeleteWorkflowNode(nodesById.get('root')!)).toBe(false)
+    expect(canQuickDeleteWorkflowNode(nodesById.get('branch')!)).toBe(false)
   })
 
   it('updates a dragged node position without mutating the source graph', () => {

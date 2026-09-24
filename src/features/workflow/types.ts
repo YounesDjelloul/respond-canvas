@@ -18,6 +18,8 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   canInsertAfter: boolean
   isInsertionMode: boolean
   insertionLabel: string
+  showsDeleteControl: boolean
+  deleteLabel: string
   icon: Component
   accentClass: string
   iconClass: string
@@ -47,6 +49,7 @@ export interface WorkflowMessageDraftItem {
   value: string
   name: string
   label: string
+  extension: string
   isImage: boolean
   error: string | null
 }

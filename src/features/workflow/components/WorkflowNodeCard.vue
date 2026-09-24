@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon } from '@lucide/vue'
+import { PlusIcon, Trash2Icon } from '@lucide/vue'
 import { Handle, Position } from '@vue-flow/core'
 import { Button } from '@/components/ui/button'
 import type { WorkflowCanvasNodeData } from '../types'
@@ -13,6 +13,7 @@ defineProps<{
 defineEmits<{
   'keyboard-open': [nodeId: string]
   'insert-after': [nodeId: string]
+  'request-delete': [nodeId: string]
 }>()
 </script>
 
@@ -33,6 +34,7 @@ defineEmits<{
       :aria-label="`${data.title}. ${data.description}`"
       @keydown.enter.prevent="data.editable && $emit('keyboard-open', id)"
       @keydown.space.prevent="data.editable && $emit('keyboard-open', id)"
+      @keydown.delete.prevent="$emit('request-delete', id)"
     >
       <Handle
         v-if="data.hasParent"
@@ -80,6 +82,21 @@ defineEmits<{
         class="!size-2 !border-2 !border-white !bg-slate-300"
       />
     </article>
+
+    <div
+      v-if="data.showsDeleteControl"
+      class="nodrag nopan pointer-events-none absolute -top-3.5 right-2 flex rounded-lg border border-slate-200 bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 pointer-coarse:hidden"
+    >
+      <Button
+        type="button"
+        variant="ghost-destructive"
+        size="icon-xs"
+        :aria-label="data.deleteLabel"
+        @click.stop="$emit('request-delete', id)"
+      >
+        <Trash2Icon aria-hidden="true" />
+      </Button>
+    </div>
 
     <div
       v-if="data.canInsertAfter"

@@ -101,6 +101,18 @@ function createEditor(state: {
       updateDescription: vi.fn(),
       submit: vi.fn(),
     },
+    deletion: {
+      isOpen: computed(() => false),
+      title: computed(() => ''),
+      message: computed(() => ''),
+      errorMessage: ref(null),
+      isDeleting: ref(false),
+      confirmLabel: computed(() => 'Delete'),
+      request: vi.fn(),
+      cancel: vi.fn(),
+      confirm: vi.fn(),
+      setVisibility: vi.fn(),
+    },
     details: {
       selectedNode: computed(() => null),
       isOpen: computed(() => false),
@@ -175,6 +187,9 @@ function renderWorkflowPage() {
           template: '<div />',
         },
         NodeCreationDialog: {
+          template: '<div />',
+        },
+        NodeDeleteDialog: {
           template: '<div />',
         },
       },

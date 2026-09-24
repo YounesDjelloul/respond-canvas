@@ -9,6 +9,7 @@ import WorkflowNodeCard from './WorkflowNodeCard.vue'
 const {
   canvas: { nodes, edges, openNode, openCreationAfter, updateNodePosition },
   creation: { isChoosingInsertion, cancel: cancelInsertion },
+  deletion: { request: requestNodeDelete },
 } = useWorkflowEditorContext()
 </script>
 
@@ -36,6 +37,7 @@ const {
           v-bind="nodeProps"
           @keyboard-open="openNode"
           @insert-after="openCreationAfter"
+          @request-delete="requestNodeDelete"
         />
       </template>
 

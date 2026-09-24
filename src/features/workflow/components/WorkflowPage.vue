@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { provideWorkflowEditor } from '../composables/workflow-editor-context'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
 import NodeCreationDialog from './NodeCreationDialog.vue'
+import NodeDeleteDialog from './NodeDeleteDialog.vue'
 import WorkflowCanvas from './WorkflowCanvas.vue'
 
 const {
@@ -94,5 +95,6 @@ const {
 
     <NodeDetailsDrawer />
     <NodeCreationDialog />
+    <NodeDeleteDialog />
   </main>
 </template>

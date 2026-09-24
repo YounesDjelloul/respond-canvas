@@ -2,6 +2,7 @@ import type { DomainResult } from '@/features/shared/domain'
 import type {
   WorkflowGraph,
   WorkflowMutationError,
+  WorkflowNode,
 } from './types'
 
 export function deleteWorkflowNode(
@@ -32,6 +33,21 @@ export function deleteWorkflowNode(
       ),
     },
   }
+}
+
+export function countWorkflowNodeDescendants(
+  graph: WorkflowGraph,
+  nodeId: string,
+): number {
+  if (!graph.nodes.some((node) => node.id === nodeId)) {
+    return 0
+  }
+
+  return collectDescendantIds(graph, nodeId).size - 1
+}
+
+export function canQuickDeleteWorkflowNode(node: WorkflowNode): boolean {
+  return node.editable && node.kind !== 'trigger'
 }
 
 function collectDescendantIds(graph: WorkflowGraph, nodeId: string): Set<string> {
