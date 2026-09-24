@@ -41,8 +41,7 @@ export function useSendMessageDraft(clearErrors: () => void) {
 
   function hasChanges(node: WorkflowNode): boolean {
     return (
-      node.kind === 'send-message' &&
-      JSON.stringify(node.config.parts) !== JSON.stringify(parts.value)
+      node.kind === 'send-message' && !haveSameParts(node.config.parts, parts.value)
     )
   }
 
@@ -119,6 +118,28 @@ function fileExtension(name: string): string {
   const extension = name.includes('.') ? name.split('.').at(-1) : undefined
 
   return extension ? extension.slice(0, 4) : 'File'
+}
+
+function haveSameParts(
+  saved: readonly WorkflowMessagePart[],
+  draft: readonly WorkflowMessagePart[],
+): boolean {
+  return (
+    saved.length === draft.length &&
+    saved.every((part, index) => {
+      const draftPart = draft[index]
+
+      if (!draftPart || part.type !== draftPart.type || part.value !== draftPart.value) {
+        return false
+      }
+
+      return (
+        part.type !== 'attachment' ||
+        draftPart.type !== 'attachment' ||
+        (part.name === draftPart.name && part.mimeType === draftPart.mimeType)
+      )
+    })
+  )
 }
 
 function textPosition(parts: readonly WorkflowMessagePart[], index: number): number {

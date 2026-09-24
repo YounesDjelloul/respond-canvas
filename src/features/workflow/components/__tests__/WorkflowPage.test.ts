@@ -67,6 +67,7 @@ function createEditor(state: {
       isEmpty: computed(() => state.isEmpty),
     },
     canvas: {
+      flowId: 'workflow-canvas-test',
       nodes: computed(() => []),
       edges: computed(() => []),
       openNode: vi.fn(),

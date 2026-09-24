@@ -2,8 +2,11 @@ import { computed, ref, toValue } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 import {
   groupWorkflowReadinessIssues,
-  validateWorkflowReadiness,
+  validateWorkflowNodeReadiness,
+  validateWorkflowStructure,
   type WorkflowGraph,
+  type WorkflowGraphIndex,
+  type WorkflowNode,
   type WorkflowReadinessError,
 } from '../domain'
 import {
@@ -14,26 +17,39 @@ import type { WorkflowReadinessGroupView } from '../types'
 
 interface WorkflowReadinessDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
+  index: MaybeRefOrGetter<WorkflowGraphIndex | null>
   openNode: (nodeId: string) => void
   openCreationAfter: (nodeId: string) => void
 }
 
 export function useWorkflowReadiness({
   graph,
+  index,
   openNode,
   openCreationAfter,
 }: WorkflowReadinessDependencies) {
   const isOpen = ref(false)
-  const result = computed(() => {
+  const nodeErrorsCache = new WeakMap<WorkflowNode, WorkflowReadinessError[]>()
+  const errors = computed(() => {
     const currentGraph = toValue(graph)
-    return currentGraph ? validateWorkflowReadiness(currentGraph) : null
+    const currentIndex = toValue(index)
+
+    if (!currentGraph || !currentIndex) {
+      return null
+    }
+
+    return [
+      ...validateWorkflowStructure(currentGraph, currentIndex),
+      ...currentGraph.nodes.flatMap((node) => nodeErrorsFor(node)),
+    ]
   })
   const issueGroups = computed(() => {
     const currentGraph = toValue(graph)
-    const currentResult = result.value
+    const currentIndex = toValue(index)
+    const currentErrors = errors.value
 
-    return currentGraph && currentResult && !currentResult.ok
-      ? groupWorkflowReadinessIssues(currentGraph, currentResult.errors)
+    return currentGraph && currentIndex && currentErrors && currentErrors.length > 0
+      ? groupWorkflowReadinessIssues(currentGraph, currentErrors, currentIndex)
       : []
   })
   const issueCount = computed(() =>
@@ -70,6 +86,18 @@ export function useWorkflowReadiness({
       ),
   )
 
+  function nodeErrorsFor(node: WorkflowNode): WorkflowReadinessError[] {
+    const cached = nodeErrorsCache.get(node)
+
+    if (cached) {
+      return cached
+    }
+
+    const nodeErrors = validateWorkflowNodeReadiness(node)
+    nodeErrorsCache.set(node, nodeErrors)
+    return nodeErrors
+  }
+
   function setOpen(open: boolean) {
     isOpen.value = open && issueCount.value > 0
   }
@@ -102,14 +130,14 @@ export function useWorkflowReadiness({
   }
 
   return {
-    isReady: computed(() => result.value?.ok === true),
+    isReady: computed(() => errors.value?.length === 0),
     hasIssues: computed(() => issueCount.value > 0),
     label: computed(() => {
-      if (!result.value) {
+      if (!errors.value) {
         return 'Checking workflow'
       }
 
-      if (result.value.ok) {
+      if (errors.value.length === 0) {
         return 'Workflow ready'
       }
 

@@ -1,7 +1,12 @@
 import type { WorkflowNode, WorkflowPosition } from './types'
 
-const horizontalGap = 320
-const verticalGap = 180
+export const WORKFLOW_LAYOUT_SPACING = {
+  horizontal: 320,
+  vertical: 180,
+} as const
+
+const horizontalGap = WORKFLOW_LAYOUT_SPACING.horizontal
+const verticalGap = WORKFLOW_LAYOUT_SPACING.vertical
 
 export function createWorkflowLayout(
   nodes: WorkflowNode[],
@@ -9,8 +14,13 @@ export function createWorkflowLayout(
   const childrenByParent = new Map<string | null, WorkflowNode[]>()
 
   for (const node of nodes) {
-    const siblings = childrenByParent.get(node.parentId) ?? []
-    childrenByParent.set(node.parentId, [...siblings, node])
+    const siblings = childrenByParent.get(node.parentId)
+
+    if (siblings) {
+      siblings.push(node)
+    } else {
+      childrenByParent.set(node.parentId, [node])
+    }
   }
 
   const positions = new Map<string, WorkflowPosition>()

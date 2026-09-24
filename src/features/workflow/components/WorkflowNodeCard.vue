@@ -90,7 +90,7 @@ defineEmits<{
 
     <div
       v-if="data.showsDeleteControl"
-      class="nodrag nopan pointer-events-none absolute -top-3.5 right-2 flex rounded-lg border border-slate-200 bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 pointer-coarse:hidden"
+      class="nodrag nopan pointer-events-none absolute -top-3.5 right-2 flex rounded-lg border border-slate-200 bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 pointer-coarse:hidden group-data-[inserting=true]/canvas:hidden"
     >
       <Button
         type="button"
@@ -113,8 +113,7 @@ defineEmits<{
         variant="outline"
         size="icon-sm"
         :aria-label="data.insertionLabel"
-        class="nodrag nopan rounded-full shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-        :class="{ 'opacity-100': data.isInsertionMode }"
+        class="nodrag nopan rounded-full opacity-0 shadow-sm group-hover:opacity-100 group-data-[inserting=true]/canvas:opacity-100 focus-visible:opacity-100"
         @click.stop="$emit('insert-after', id)"
       >
         <PlusIcon aria-hidden="true" />

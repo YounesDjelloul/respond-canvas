@@ -5,11 +5,16 @@ export {
   deleteWorkflowNode,
 } from './delete-workflow-node'
 export { groupWorkflowReadinessIssues } from './group-workflow-readiness-issues'
+export { collectWorkflowSubtreeIds, indexWorkflowGraph } from './index-workflow-graph'
 export { insertWorkflowNode } from './insert-workflow-node'
 export { updateWorkflowNode } from './update-workflow-node'
 export { updateWorkflowNodePosition } from './update-workflow-node-position'
 export { validateWorkflowAttachment } from './validate-workflow-fields'
-export { validateWorkflowReadiness } from './validate-workflow-readiness'
+export {
+  validateWorkflowNodeReadiness,
+  validateWorkflowReadiness,
+  validateWorkflowStructure,
+} from './validate-workflow-readiness'
 export {
   CREATABLE_WORKFLOW_NODE_KINDS,
   WORKFLOW_NODE_KINDS,
@@ -29,6 +34,7 @@ export type {
   WorkflowGraph,
   WorkflowGraphError,
   WorkflowGraphErrorCode,
+  WorkflowGraphIndex,
   WorkflowInsertionPoint,
   WorkflowMutationError,
   WorkflowMutationErrorCode,

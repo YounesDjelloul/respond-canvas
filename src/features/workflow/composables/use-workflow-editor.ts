@@ -13,21 +13,24 @@ export function useWorkflowEditor(
 ) {
   const workflow = useWorkflowGraph(repository)
   const selection = useWorkflowSelection(
-    workflow.graph,
+    workflow.index,
     workflow.status.isLoading,
   )
   const creation = useWorkflowNodeCreation({
     graph: workflow.graph,
+    index: workflow.index,
     applyGraph: workflow.applyGraph,
     openNode: selection.openNode,
   })
   const readiness = useWorkflowReadiness({
     graph: workflow.graph,
+    index: workflow.index,
     openNode: selection.openNode,
     openCreationAfter: creation.openAfter,
   })
   const canvas = useWorkflowCanvas({
     graph: workflow.graph,
+    index: workflow.index,
     issueCounts: readiness.issueCounts,
     selectedNode: selection.selectedNode,
     isChoosingInsertion: creation.isChoosingInsertion,
@@ -38,6 +41,7 @@ export function useWorkflowEditor(
   })
   const deletion = useWorkflowNodeDeletion({
     graph: workflow.graph,
+    index: workflow.index,
     applyGraph: workflow.applyGraph,
     closeNode: selection.closeNode,
   })

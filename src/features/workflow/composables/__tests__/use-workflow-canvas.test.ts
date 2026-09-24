@@ -1,6 +1,7 @@
 import { SendIcon } from '@lucide/vue'
 import { defineComponent, h } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { useVueFlow } from '@vue-flow/core'
 import { createPinia } from 'pinia'
 import { render, waitFor } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
@@ -492,7 +493,6 @@ describe('useWorkflowEditor', () => {
     model.creation.begin()
 
     expect(model.creation.isChoosingInsertion.value).toBe(true)
-    expect(model.canvas.edges.value[0]?.data?.isInsertionMode).toBe(true)
 
     model.canvas.openCreation({ sourceId: '1', targetId: 'message' })
     model.creation.updateTitle('Qualify contact')
@@ -721,7 +721,7 @@ describe('useWorkflowEditor', () => {
     expect(model.details.isOpen.value).toBe(false)
   })
 
-  it('shows canvas delete controls only for removable steps outside insertion mode', async () => {
+  it('shows canvas delete controls for removable steps without rebuilding views in insertion mode', async () => {
     const repository: WorkflowRepository = {
       getWorkflow: async () => typeSpecificPayload,
     }
@@ -744,10 +744,154 @@ describe('useWorkflowEditor', () => {
     })
     expect(model.canvas.nodes.value[1]?.data?.deleteLabel).toBe('Delete Welcome')
 
+    const nodeViews = [...model.canvas.nodes.value]
+    const edgeViews = [...model.canvas.edges.value]
+
     model.creation.toggle()
 
+    expect(model.creation.isChoosingInsertion.value).toBe(true)
+    model.canvas.nodes.value.forEach((view, position) => {
+      expect(view).toBe(nodeViews[position])
+    })
+    model.canvas.edges.value.forEach((view, position) => {
+      expect(view).toBe(edgeViews[position])
+    })
+  })
+
+  it('detects draft changes by value and returns to clean when edits are reverted', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => [
+        validPayload[0],
+        {
+          ...validPayload[1],
+          data: {
+            payload: [
+              { type: 'text', text: 'Hello' },
+              { type: 'attachment', attachment: 'https://cdn.example.com/menu.pdf' },
+            ],
+          },
+        },
+        typeSpecificPayload[3],
+      ],
+    }
+    const { model, router } = await renderComposable(repository, '/nodes/message')
+
     await waitFor(() => {
-      expect(Object.values(controlsById()).every((shown) => !shown)).toBe(true)
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    expect(model.details.isDirty.value).toBe(false)
+    model.details.sendMessage.updateText(0, 'Hi')
+    expect(model.details.isDirty.value).toBe(true)
+    model.details.sendMessage.updateText(0, 'Hello')
+    expect(model.details.isDirty.value).toBe(false)
+
+    await router.push('/nodes/hours')
+    await waitFor(() => {
+      expect(model.details.businessHours.isVisible.value).toBe(true)
+    })
+
+    expect(model.details.isDirty.value).toBe(false)
+    model.details.businessHours.updateHour(0, 'startTime', '08:00')
+    expect(model.details.isDirty.value).toBe(true)
+    model.details.businessHours.updateHour(0, 'startTime', '09:00')
+    expect(model.details.isDirty.value).toBe(false)
+    model.details.businessHours.updateTimezone('Asia/Singapore')
+    expect(model.details.isDirty.value).toBe(true)
+  })
+
+  it('applies graph changes to the canvas store incrementally', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    const flow = useVueFlow(model.canvas.flowId)
+    const flowNodes = flow.nodes.value
+    const triggerNode = flow.findNode('1')
+
+    expect(flow.nodes.value.map((node) => node.id)).toEqual(['1', 'message', 'comment', 'hours'])
+
+    model.details.updateTitle('Warm welcome')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(flow.findNode('message')?.data.title).toBe('Warm welcome')
+    })
+    expect(flow.nodes.value).toBe(flowNodes)
+    expect(flow.findNode('1')).toBe(triggerNode)
+
+    model.deletion.request('hours')
+    model.deletion.confirm()
+
+    await waitFor(() => {
+      expect(flow.findNode('hours')).toBeUndefined()
+    })
+    expect(flow.edges.value.map((edge) => edge.id)).not.toContain('1:hours')
+    expect(flow.findNode('1')).toBe(triggerNode)
+  })
+
+  it('rebuilds only the renamed node and the edges that touch it', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository, '/nodes/message')
+
+    await waitFor(() => {
+      expect(model.details.isOpen.value).toBe(true)
+    })
+
+    const nodeViews = new Map(model.canvas.nodes.value.map((view) => [view.id, view]))
+    const edgeViews = new Map(model.canvas.edges.value.map((view) => [view.id, view]))
+
+    model.details.updateTitle('Warm welcome')
+    model.details.save()
+
+    await waitFor(() => {
+      expect(
+        model.canvas.nodes.value.find((view) => view.id === 'message')?.data?.title,
+      ).toBe('Warm welcome')
+    })
+
+    const rebuiltNodes = model.canvas.nodes.value
+      .filter((view) => view !== nodeViews.get(view.id))
+      .map((view) => view.id)
+    const rebuiltEdges = model.canvas.edges.value
+      .filter((view) => view !== edgeViews.get(view.id))
+      .map((view) => view.id)
+
+    expect(rebuiltNodes).toEqual(['message'])
+    expect(rebuiltEdges.sort()).toEqual(['1:message', 'message:comment'])
+  })
+
+  it('keeps unaffected views when a leaf is deleted', async () => {
+    const repository: WorkflowRepository = {
+      getWorkflow: async () => typeSpecificPayload,
+    }
+    const { model } = await renderComposable(repository)
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value).toHaveLength(4)
+    })
+
+    const nodeViews = new Map(model.canvas.nodes.value.map((view) => [view.id, view]))
+
+    model.deletion.request('hours')
+    model.deletion.confirm()
+
+    await waitFor(() => {
+      expect(model.canvas.nodes.value.map((view) => view.id)).toEqual([
+        '1',
+        'message',
+        'comment',
+      ])
+    })
+    model.canvas.nodes.value.forEach((view) => {
+      expect(view).toBe(nodeViews.get(view.id))
     })
   })
 })

@@ -206,3 +206,8 @@ export interface WorkflowReadinessIssueGroup {
   fix: WorkflowReadinessFix
   issues: readonly WorkflowReadinessIssue[]
 }
+
+export interface WorkflowGraphIndex {
+  nodesById: ReadonlyMap<string, WorkflowNode>
+  childrenByParent: ReadonlyMap<string | null, readonly WorkflowNode[]>
+}

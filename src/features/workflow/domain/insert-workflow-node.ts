@@ -1,14 +1,17 @@
 import type { DomainResult } from '@/features/shared/domain'
-import { assembleWorkflowGraph } from './assemble-workflow-graph'
+import { collectWorkflowSubtreeIds, indexWorkflowGraph } from './index-workflow-graph'
+import { WORKFLOW_LAYOUT_SPACING } from './layout-workflow'
 import {
   validateWorkflowBusinessHoursFields,
   validateWorkflowNodeFields,
 } from './validate-workflow-fields'
 import type {
   InsertWorkflowNodeInput,
+  WorkflowEdge,
   WorkflowGraph,
   WorkflowMutationError,
   WorkflowNode,
+  WorkflowPosition,
 } from './types'
 
 const defaultBusinessHours = ['mon', 'tue', 'wed', 'thu', 'fri'].map((day) => ({
@@ -50,18 +53,71 @@ export function insertWorkflowNode(
   }
 
   const { source, target } = insertionPointResult.value
+  const anchor = target?.position ?? {
+    x: source.position.x,
+    y: source.position.y + WORKFLOW_LAYOUT_SPACING.vertical,
+  }
   const insertedNodes = createInsertedNodeGroup(
     input,
     source.id,
-    target,
+    anchor,
     fieldsResult.value,
   )
-  const existingNodes = reparentInsertionTarget(graph.nodes, target, input)
+  const nextTargetParentId =
+    input.kind === 'business-hours' ? input.successConnectorId : input.id
 
   return {
     ok: true,
-    value: assembleWorkflowGraph([...existingNodes, ...insertedNodes]),
+    value: {
+      nodes: [
+        ...moveInsertionTarget(graph, target, nextTargetParentId, input.kind),
+        ...insertedNodes,
+      ],
+      edges: [
+        ...graph.edges.filter(
+          (edge) => !(edge.source === source.id && edge.target === target?.id),
+        ),
+        ...insertedNodes.map((node) => createEdge(node.parentId!, node.id)),
+        ...(target ? [createEdge(nextTargetParentId, target.id)] : []),
+      ],
+    },
   }
+}
+
+function moveInsertionTarget(
+  graph: WorkflowGraph,
+  target: WorkflowNode | null,
+  nextParentId: string,
+  kind: InsertWorkflowNodeInput['kind'],
+): WorkflowNode[] {
+  if (!target) {
+    return graph.nodes
+  }
+
+  const shiftedIds = collectWorkflowSubtreeIds(indexWorkflowGraph(graph), target.id)
+  const offset =
+    kind === 'business-hours'
+      ? {
+          x: -WORKFLOW_LAYOUT_SPACING.horizontal / 2,
+          y: WORKFLOW_LAYOUT_SPACING.vertical * 2,
+        }
+      : { x: 0, y: WORKFLOW_LAYOUT_SPACING.vertical }
+
+  return graph.nodes.map((node) => {
+    if (!shiftedIds.has(node.id)) {
+      return node
+    }
+
+    return {
+      ...node,
+      parentId: node.id === target.id ? nextParentId : node.parentId,
+      position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+    }
+  })
+}
+
+function createEdge(source: string, target: string): WorkflowEdge {
+  return { id: `${source}:${target}`, source, target }
 }
 
 function resolveInsertionPoint(
@@ -181,11 +237,9 @@ function validateInsertionDetails(
 function createInsertedNodeGroup(
   input: InsertWorkflowNodeInput,
   parentId: string,
-  target: WorkflowNode | null,
+  position: WorkflowPosition,
   fields: ValidatedInsertionFields,
 ): WorkflowNode[] {
-  const position = target?.position ?? { x: 0, y: 0 }
-
   if (input.kind === 'send-message') {
     return [
       createSendMessageNode(
@@ -292,7 +346,10 @@ function createBusinessHoursNodeGroup(
       description: 'Conditions matched',
       editable: false,
       accent: 'green',
-      position,
+      position: {
+        x: position.x - WORKFLOW_LAYOUT_SPACING.horizontal / 2,
+        y: position.y + WORKFLOW_LAYOUT_SPACING.vertical,
+      },
       config: { outcome: 'success' },
     },
     {
@@ -303,23 +360,13 @@ function createBusinessHoursNodeGroup(
       description: 'Conditions did not match',
       editable: false,
       accent: 'neutral',
-      position,
+      position: {
+        x: position.x + WORKFLOW_LAYOUT_SPACING.horizontal / 2,
+        y: position.y + WORKFLOW_LAYOUT_SPACING.vertical,
+      },
       config: { outcome: 'failure' },
     },
   ]
-}
-
-function reparentInsertionTarget(
-  nodes: WorkflowNode[],
-  target: WorkflowNode | null,
-  input: InsertWorkflowNodeInput,
-): WorkflowNode[] {
-  const nextParentId =
-    input.kind === 'business-hours' ? input.successConnectorId : input.id
-
-  return nodes.map((node) =>
-    node.id === target?.id ? { ...node, parentId: nextParentId } : node,
-  )
 }
 
 function failure(

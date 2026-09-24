@@ -1,10 +1,10 @@
 import { computed, nextTick, ref, toValue, watch } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { WorkflowGraph } from '../domain'
+import type { WorkflowGraphIndex } from '../domain'
 
 export function useWorkflowSelection(
-  graph: MaybeRefOrGetter<WorkflowGraph | null>,
+  index: MaybeRefOrGetter<WorkflowGraphIndex | null>,
   isLoading: MaybeRefOrGetter<boolean>,
 ) {
   const route = useRoute()
@@ -14,10 +14,10 @@ export function useWorkflowSelection(
     const nodeId = route.params.nodeId
     return typeof nodeId === 'string' ? nodeId : null
   })
-  const routeNode = computed(
-    () =>
-      toValue(graph)?.nodes.find((node) => node.id === routeNodeId.value) ?? null,
-  )
+  const routeNode = computed(() => {
+    const nodeId = routeNodeId.value
+    return nodeId ? (toValue(index)?.nodesById.get(nodeId) ?? null) : null
+  })
   const selectedNode = computed(() => {
     const node = routeNode.value
     return node?.editable ? node : null
@@ -34,7 +34,7 @@ export function useWorkflowSelection(
   )
 
   function openNode(nodeId: string) {
-    const node = toValue(graph)?.nodes.find((candidate) => candidate.id === nodeId)
+    const node = toValue(index)?.nodesById.get(nodeId)
 
     if (!node?.editable) {
       return

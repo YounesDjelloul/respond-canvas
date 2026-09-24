@@ -164,6 +164,7 @@ function createEditor(): WorkflowEditorController {
       isEmpty: computed(() => false),
     },
     canvas: {
+      flowId: 'workflow-canvas-test',
       nodes: computed(() => []),
       edges: computed(() => []),
       openNode: vi.fn(),

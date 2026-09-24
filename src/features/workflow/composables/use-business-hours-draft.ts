@@ -17,7 +17,7 @@ export function useBusinessHoursDraft(clearErrors: () => void) {
   function hasChanges(node: WorkflowNode): boolean {
     return (
       node.kind === 'business-hours' &&
-      (JSON.stringify(node.config.hours) !== JSON.stringify(hours.value) ||
+      (!haveSameHours(node.config.hours, hours.value) ||
         node.config.timezone !== timezone.value)
     )
   }
@@ -73,4 +73,23 @@ function createTimezoneOptions(selectedTimezone: string): string[] {
       ...remainingTimezones,
     ]),
   ).filter(Boolean)
+}
+
+function haveSameHours(
+  saved: readonly BusinessHour[],
+  draft: readonly BusinessHour[],
+): boolean {
+  return (
+    saved.length === draft.length &&
+    saved.every((hour, index) => {
+      const draftHour = draft[index]
+
+      return (
+        draftHour !== undefined &&
+        hour.day === draftHour.day &&
+        hour.startTime === draftHour.startTime &&
+        hour.endTime === draftHour.endTime
+      )
+    })
+  )
 }

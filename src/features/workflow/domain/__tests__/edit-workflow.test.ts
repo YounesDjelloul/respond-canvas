@@ -3,13 +3,17 @@ import {
   canQuickDeleteWorkflowNode,
   countWorkflowNodeDescendants,
   createWorkflowGraph,
+  collectWorkflowSubtreeIds,
   groupWorkflowReadinessIssues,
+  indexWorkflowGraph,
   deleteWorkflowNode,
   insertWorkflowNode,
   updateWorkflowNodePosition,
   updateWorkflowNode,
   validateWorkflowAttachment,
+  validateWorkflowNodeReadiness,
   validateWorkflowReadiness,
+  validateWorkflowStructure,
 } from '../index'
 
 const payload = [
@@ -436,6 +440,47 @@ describe('workflow editing', () => {
     })
   })
 
+  it('splits readiness into node-local and structural checks that compose exactly', () => {
+    const emptied = updateWorkflowNode(validGraph(), {
+      id: 'message',
+      title: 'Welcome',
+      description: 'Welcome',
+      kind: 'send-message',
+      parts: [{ type: 'text', value: 'Hello' }],
+    })
+
+    if (!emptied.ok) {
+      throw new Error('The fixture update must succeed')
+    }
+
+    const graph = {
+      ...emptied.value,
+      nodes: emptied.value.nodes.map((node) =>
+        node.kind === 'send-message' ? { ...node, config: { parts: [] } } : node,
+      ),
+    }
+    const message = graph.nodes.find((node) => node.id === 'message')!
+    const structural = validateWorkflowStructure(graph, indexWorkflowGraph(graph))
+    const nodeLocal = graph.nodes.flatMap(validateWorkflowNodeReadiness)
+    const combined = validateWorkflowReadiness(graph)
+
+    expect(validateWorkflowNodeReadiness(message)).toEqual([
+      expect.objectContaining({
+        code: 'message-content-required',
+        path: ['nodes', 'message', 'config', 'parts'],
+      }),
+    ])
+    expect(structural).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'outgoing-path-required', path: ['nodes', 'hours'] }),
+      ]),
+    )
+    expect(combined.ok ? [] : combined.errors).toEqual([...structural, ...nodeLocal])
+    expect(
+      validateWorkflowStructure({ nodes: [], edges: [] }, indexWorkflowGraph({ nodes: [], edges: [] })),
+    ).toEqual([expect.objectContaining({ code: 'workflow-empty' })])
+  })
+
   it('requires every generated Business Hours branch to continue', () => {
     const insertionResult = insertWorkflowNode(readyGraph(), {
       id: 'support-hours',
@@ -527,6 +572,109 @@ describe('workflow editing', () => {
       ]),
     )
     expect(graph.nodes.find((node) => node.id === 'message')?.parentId).toBe('branch')
+  })
+
+  it('indexes nodes by id and children by parent in graph order', () => {
+    const index = indexWorkflowGraph(validGraph())
+
+    expect(index.nodesById.get('message')?.title).toBe('Welcome')
+    expect(index.childrenByParent.get(null)?.map((node) => node.id)).toEqual(['root'])
+    expect(index.childrenByParent.get('root')?.map((node) => node.id)).toEqual([
+      'branch',
+      'hours',
+    ])
+    expect([...collectWorkflowSubtreeIds(index, 'branch')].sort()).toEqual([
+      'branch',
+      'comment',
+      'message',
+    ])
+    expect([...collectWorkflowSubtreeIds(index, 'missing')]).toEqual(['missing'])
+  })
+
+  it('inserts locally, shifting only the downstream subtree and reusing everything else', () => {
+    const moved = updateWorkflowNodePosition(validGraph(), 'hours', { x: 900, y: 40 })
+
+    if (!moved.ok) {
+      throw new Error('The fixture move must succeed')
+    }
+
+    const graph = moved.value
+    const nodesBefore = new Map(graph.nodes.map((node) => [node.id, node]))
+    const result = insertWorkflowNode(graph, {
+      id: 'inserted',
+      insertionPoint: { sourceId: 'branch', targetId: 'message' },
+      kind: 'add-comment',
+      title: 'Qualify lead',
+      description: 'Add context for the team',
+    })
+
+    if (!result.ok) {
+      throw new Error('The insertion must succeed')
+    }
+
+    const nodesAfter = new Map(result.value.nodes.map((node) => [node.id, node]))
+    const message = nodesBefore.get('message')!
+    const comment = nodesBefore.get('comment')!
+
+    expect(nodesAfter.get('root')).toBe(nodesBefore.get('root'))
+    expect(nodesAfter.get('branch')).toBe(nodesBefore.get('branch'))
+    expect(nodesAfter.get('hours')).toBe(nodesBefore.get('hours'))
+    expect(nodesAfter.get('hours')?.position).toEqual({ x: 900, y: 40 })
+    expect(nodesAfter.get('inserted')?.position).toEqual(message.position)
+    expect(nodesAfter.get('message')?.position).toEqual({
+      x: message.position.x,
+      y: message.position.y + 180,
+    })
+    expect(nodesAfter.get('comment')?.position).toEqual({
+      x: comment.position.x,
+      y: comment.position.y + 180,
+    })
+    expect(result.value.edges.find((edge) => edge.id === 'root:hours')).toBe(
+      graph.edges.find((edge) => edge.id === 'root:hours'),
+    )
+    expect(result.value.edges.map((edge) => edge.id).sort()).toEqual([
+      'branch:inserted',
+      'inserted:message',
+      'message:comment',
+      'root:branch',
+      'root:hours',
+    ])
+  })
+
+  it('places generated branches below Business Hours and appends below a leaf', () => {
+    const graph = validGraph()
+    const comment = graph.nodes.find((node) => node.id === 'comment')!
+    const appended = insertWorkflowNode(graph, {
+      id: 'appended',
+      insertionPoint: { sourceId: 'comment', targetId: null },
+      kind: 'business-hours',
+      title: 'Support hours',
+      description: 'Route by team availability',
+      successConnectorId: 'appended-success',
+      failureConnectorId: 'appended-failure',
+      timezone: 'UTC',
+    })
+
+    if (!appended.ok) {
+      throw new Error('The append must succeed')
+    }
+
+    const positions = new Map(appended.value.nodes.map((node) => [node.id, node.position]))
+
+    expect(positions.get('appended')).toEqual({
+      x: comment.position.x,
+      y: comment.position.y + 180,
+    })
+    expect(positions.get('appended-success')).toEqual({
+      x: comment.position.x - 160,
+      y: comment.position.y + 360,
+    })
+    expect(positions.get('appended-failure')).toEqual({
+      x: comment.position.x + 160,
+      y: comment.position.y + 360,
+    })
+    expect(appended.value.nodes.slice(0, graph.nodes.length)).toEqual(graph.nodes)
+    expect(appended.value.nodes[0]).toBe(graph.nodes[0])
   })
 
   it('creates Business Hours branches and continues the old path through Success', () => {

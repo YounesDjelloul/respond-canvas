@@ -2,10 +2,12 @@ import type { DomainResult } from '@/features/shared/domain'
 import type {
   BusinessHoursWorkflowNode,
   WorkflowGraph,
+  WorkflowGraphIndex,
   WorkflowMutationError,
   WorkflowNode,
   WorkflowReadinessError,
 } from './types'
+import { indexWorkflowGraph } from './index-workflow-graph'
 import { WORKFLOW_NODE_CAPABILITIES } from './workflow-node-kinds'
 import { validateBusinessHourRules } from './validate-business-hour-rules'
 import {
@@ -17,24 +19,10 @@ import {
 export function validateWorkflowReadiness(
   graph: WorkflowGraph,
 ): DomainResult<WorkflowGraph, WorkflowReadinessError> {
-  if (graph.nodes.length === 0) {
-    return {
-      ok: false,
-      errors: [
-        {
-          code: 'workflow-empty',
-          message: 'Add at least one trigger to start the workflow',
-          path: ['nodes'],
-        },
-      ],
-    }
-  }
-
+  const index = indexWorkflowGraph(graph)
   const errors = [
-    ...validateTriggerCount(graph),
-    ...validateRootCount(graph),
-    ...validateRequiredOutgoingPaths(graph),
-    ...graph.nodes.flatMap((node) => validateReadyNode(graph, node)),
+    ...validateWorkflowStructure(graph, index),
+    ...graph.nodes.flatMap(validateWorkflowNodeReadiness),
   ]
 
   return errors.length > 0
@@ -42,58 +30,31 @@ export function validateWorkflowReadiness(
     : { ok: true, value: graph }
 }
 
-function validateTriggerCount(graph: WorkflowGraph): WorkflowReadinessError[] {
-  const triggerCount = graph.nodes.filter((node) => node.kind === 'trigger').length
-
-  return triggerCount === 1
-    ? []
-    : [
-        {
-          code: 'workflow-trigger-count-invalid',
-          message: 'The workflow must contain exactly one trigger',
-          path: ['nodes'],
-        },
-      ]
-}
-
-function validateRootCount(graph: WorkflowGraph): WorkflowReadinessError[] {
-  const roots = graph.nodes.filter((node) => node.parentId === null)
-  const hasSingleTriggerRoot = roots.length === 1 && roots[0]?.kind === 'trigger'
-
-  return hasSingleTriggerRoot
-    ? []
-    : [
-        {
-          code: 'workflow-root-count-invalid',
-          message: 'The workflow must have one trigger as its root',
-          path: ['nodes'],
-        },
-      ]
-}
-
-function validateRequiredOutgoingPaths(
+export function validateWorkflowStructure(
   graph: WorkflowGraph,
+  index: WorkflowGraphIndex,
 ): WorkflowReadinessError[] {
-  const sourceIds = new Set(graph.edges.map((edge) => edge.source))
+  if (graph.nodes.length === 0) {
+    return [
+      {
+        code: 'workflow-empty',
+        message: 'Add at least one trigger to start the workflow',
+        path: ['nodes'],
+      },
+    ]
+  }
 
-  return graph.nodes.flatMap((node): WorkflowReadinessError[] => {
-    const requiresOutgoingPath =
-      WORKFLOW_NODE_CAPABILITIES[node.kind].requiresOutgoingPath
-
-    return requiresOutgoingPath && !sourceIds.has(node.id)
-      ? [
-          {
-            code: 'outgoing-path-required',
-            message: `${node.title} requires at least one workflow step`,
-            path: ['nodes', node.id],
-          },
-        ]
-      : []
-  })
+  return [
+    ...validateTriggerCount(graph),
+    ...validateRootCount(index),
+    ...validateRequiredOutgoingPaths(graph, index),
+    ...graph.nodes.flatMap((node) =>
+      node.kind === 'business-hours' ? validateBusinessConnectors(index, node) : [],
+    ),
+  ]
 }
 
-function validateReadyNode(
-  graph: WorkflowGraph,
+export function validateWorkflowNodeReadiness(
   node: WorkflowNode,
 ): WorkflowReadinessError[] {
   const detailsResult = validateWorkflowNodeFields(node)
@@ -110,33 +71,73 @@ function validateReadyNode(
 
   if (node.kind === 'business-hours') {
     const fieldsResult = validateWorkflowBusinessHoursFields(node.config)
-    const businessErrors = [
-      ...(fieldsResult.ok
-        ? []
-        : prefixNodeErrors(node.id, fieldsResult.errors)),
-      ...prefixNodeErrors(
-        node.id,
-        validateBusinessHourRules(node.config.hours),
-      ),
-      ...validateBusinessConnectors(graph, node),
-    ]
 
-    return [...errors, ...businessErrors]
+    return [
+      ...errors,
+      ...(fieldsResult.ok ? [] : prefixNodeErrors(node.id, fieldsResult.errors)),
+      ...prefixNodeErrors(node.id, validateBusinessHourRules(node.config.hours)),
+    ]
   }
 
   return errors
 }
 
-function validateBusinessConnectors(
+function validateTriggerCount(graph: WorkflowGraph): WorkflowReadinessError[] {
+  const triggerCount = graph.nodes.filter((node) => node.kind === 'trigger').length
+
+  return triggerCount === 1
+    ? []
+    : [
+        {
+          code: 'workflow-trigger-count-invalid',
+          message: 'The workflow must contain exactly one trigger',
+          path: ['nodes'],
+        },
+      ]
+}
+
+function validateRootCount(index: WorkflowGraphIndex): WorkflowReadinessError[] {
+  const roots = index.childrenByParent.get(null) ?? []
+  const hasSingleTriggerRoot = roots.length === 1 && roots[0]?.kind === 'trigger'
+
+  return hasSingleTriggerRoot
+    ? []
+    : [
+        {
+          code: 'workflow-root-count-invalid',
+          message: 'The workflow must have one trigger as its root',
+          path: ['nodes'],
+        },
+      ]
+}
+
+function validateRequiredOutgoingPaths(
   graph: WorkflowGraph,
+  index: WorkflowGraphIndex,
+): WorkflowReadinessError[] {
+  return graph.nodes.flatMap((node): WorkflowReadinessError[] => {
+    const requiresOutgoingPath =
+      WORKFLOW_NODE_CAPABILITIES[node.kind].requiresOutgoingPath
+
+    return requiresOutgoingPath && !index.childrenByParent.has(node.id)
+      ? [
+          {
+            code: 'outgoing-path-required',
+            message: `${node.title} requires at least one workflow step`,
+            path: ['nodes', node.id],
+          },
+        ]
+      : []
+  })
+}
+
+function validateBusinessConnectors(
+  index: WorkflowGraphIndex,
   node: BusinessHoursWorkflowNode,
 ): WorkflowReadinessError[] {
   const connectorIdSet = new Set(node.config.connectorIds)
-  const connectors = graph.nodes.filter(
-    (candidate) =>
-      candidate.kind === 'branch' &&
-      candidate.parentId === node.id &&
-      connectorIdSet.has(candidate.id),
+  const connectors = (index.childrenByParent.get(node.id) ?? []).filter(
+    (candidate) => candidate.kind === 'branch' && connectorIdSet.has(candidate.id),
   )
   const outcomes = new Set(
     connectors.map((connector) =>

@@ -7,7 +7,7 @@ import WorkflowInsertionEdge from './WorkflowInsertionEdge.vue'
 import WorkflowNodeCard from './WorkflowNodeCard.vue'
 
 const {
-  canvas: { nodes, edges, openNode, openCreationAfter, updateNodePosition },
+  canvas: { flowId, openNode, openCreationAfter, updateNodePosition },
   creation: { isChoosingInsertion, cancel: cancelInsertion },
   deletion: { request: requestNodeDelete },
 } = useWorkflowEditorContext()
@@ -16,11 +16,11 @@ const {
 <template>
   <section
     aria-label="Workflow canvas"
-    class="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+    :data-inserting="isChoosingInsertion"
+    class="group/canvas relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
   >
     <VueFlow
-      :nodes="nodes"
-      :edges="edges"
+      :id="flowId"
       :min-zoom="0.35"
       :max-zoom="1.75"
       :nodes-connectable="false"
@@ -41,8 +41,30 @@ const {
         />
       </template>
 
-      <template #edge-workflow-insertion="edgeProps">
-        <WorkflowInsertionEdge v-bind="edgeProps" />
+      <template
+        #edge-workflow-insertion="{
+          id,
+          sourceX,
+          sourceY,
+          targetX,
+          targetY,
+          sourcePosition,
+          targetPosition,
+          markerEnd,
+          data,
+        }"
+      >
+        <WorkflowInsertionEdge
+          :id="id"
+          :source-x="sourceX"
+          :source-y="sourceY"
+          :target-x="targetX"
+          :target-y="targetY"
+          :source-position="sourcePosition"
+          :target-position="targetPosition"
+          :marker-end="markerEnd"
+          :data="data"
+        />
       </template>
     </VueFlow>
 

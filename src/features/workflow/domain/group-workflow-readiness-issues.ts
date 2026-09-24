@@ -1,5 +1,7 @@
+import { indexWorkflowGraph } from './index-workflow-graph'
 import type {
   WorkflowGraph,
+  WorkflowGraphIndex,
   WorkflowNode,
   WorkflowReadinessError,
   WorkflowReadinessFix,
@@ -10,8 +12,9 @@ import type {
 export function groupWorkflowReadinessIssues(
   graph: WorkflowGraph,
   errors: readonly WorkflowReadinessError[],
+  index: WorkflowGraphIndex = indexWorkflowGraph(graph),
 ): WorkflowReadinessIssueGroup[] {
-  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const { nodesById } = index
   const workflowIssues: WorkflowReadinessIssue[] = []
   const issuesByNodeId = new Map<string, WorkflowReadinessIssue[]>()
 

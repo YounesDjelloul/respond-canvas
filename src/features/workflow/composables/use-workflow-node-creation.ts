@@ -18,6 +18,7 @@ import {
   type CreatableWorkflowNodeKind,
   type InsertWorkflowNodeInput,
   type WorkflowGraph,
+  type WorkflowGraphIndex,
   type WorkflowInsertionPoint,
   type WorkflowMutationError,
 } from '../domain'
@@ -26,12 +27,14 @@ import { useWorkflowEditorStore } from '../stores/workflow-editor'
 
 interface WorkflowNodeCreationDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
+  index: MaybeRefOrGetter<WorkflowGraphIndex | null>
   applyGraph: (graph: WorkflowGraph) => void
   openNode: (nodeId: string) => void
 }
 
 export function useWorkflowNodeCreation({
   graph,
+  index,
   applyGraph,
   openNode,
 }: WorkflowNodeCreationDependencies) {
@@ -49,7 +52,7 @@ export function useWorkflowNodeCreation({
   const isOpen = computed(
     () => mode.value === 'creating' && insertionPoint.value !== null,
   )
-  const context = computed(() => createInsertionContext(toValue(graph), insertionPoint.value))
+  const context = computed(() => createInsertionContext(toValue(index), insertionPoint.value))
   const titleError = computed(() => errorMessageAt(errors.value, ['title']))
   const descriptionError = computed(() => errorMessageAt(errors.value, ['description']))
   const errorMessage = computed(() =>
@@ -183,16 +186,16 @@ export function useWorkflowNodeCreation({
 }
 
 function createInsertionContext(
-  graph: WorkflowGraph | null,
+  index: WorkflowGraphIndex | null,
   insertionPoint: WorkflowInsertionPoint | null,
 ): string {
-  if (!graph || !insertionPoint) {
+  if (!index || !insertionPoint) {
     return ''
   }
 
-  const source = graph.nodes.find((node) => node.id === insertionPoint.sourceId)
+  const source = index.nodesById.get(insertionPoint.sourceId)
   const target = insertionPoint.targetId
-    ? graph.nodes.find((node) => node.id === insertionPoint.targetId)
+    ? index.nodesById.get(insertionPoint.targetId)
     : null
 
   return target

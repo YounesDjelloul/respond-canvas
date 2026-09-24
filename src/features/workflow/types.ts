@@ -16,7 +16,6 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   hasParent: boolean
   hasChildren: boolean
   canInsertAfter: boolean
-  isInsertionMode: boolean
   insertionLabel: string
   showsDeleteControl: boolean
   deleteLabel: string
@@ -27,12 +26,11 @@ export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   iconClass: string
 }
 
-export type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
+export type WorkflowCanvasNode = Node<WorkflowCanvasNodeData> & { selected?: boolean }
 
 export interface WorkflowCanvasEdgeData extends Record<string, unknown> {
   insertionPoint: WorkflowInsertionPoint
   insertionLabel: string
-  isInsertionMode: boolean
 }
 
 export type WorkflowCanvasEdge = Edge<WorkflowCanvasEdgeData>

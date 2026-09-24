@@ -3,20 +3,23 @@ import type { MaybeRefOrGetter } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
 import {
   canQuickDeleteWorkflowNode,
-  countWorkflowNodeDescendants,
+  collectWorkflowSubtreeIds,
   deleteWorkflowNode,
   type WorkflowGraph,
+  type WorkflowGraphIndex,
   type WorkflowNode,
 } from '../domain'
 
 interface WorkflowNodeDeletionDependencies {
   graph: MaybeRefOrGetter<WorkflowGraph | null>
+  index: MaybeRefOrGetter<WorkflowGraphIndex | null>
   applyGraph: (graph: WorkflowGraph) => void
   closeNode: (focusNodeId?: string | null) => Promise<void>
 }
 
 export function useWorkflowNodeDeletion({
   graph,
+  index,
   applyGraph,
   closeNode,
 }: WorkflowNodeDeletionDependencies) {
@@ -27,15 +30,15 @@ export function useWorkflowNodeDeletion({
     mutationFn: async (nodeId: string) =>
       deleteWorkflowNode(requireGraph(toValue(graph)), nodeId),
   })
-  const pendingNode = computed(
-    () =>
-      toValue(graph)?.nodes.find((node) => node.id === pendingNodeId.value) ?? null,
-  )
+  const pendingNode = computed(() => {
+    const nodeId = pendingNodeId.value
+    return nodeId ? (toValue(index)?.nodesById.get(nodeId) ?? null) : null
+  })
   const followingStepCount = computed(() => {
-    const currentGraph = toValue(graph)
+    const currentIndex = toValue(index)
     const node = pendingNode.value
 
-    return currentGraph && node ? countWorkflowNodeDescendants(currentGraph, node.id) : 0
+    return currentIndex && node ? collectWorkflowSubtreeIds(currentIndex, node.id).size - 1 : 0
   })
   const message = computed(() => {
     const count = followingStepCount.value
@@ -63,7 +66,7 @@ export function useWorkflowNodeDeletion({
     nodeId: string,
     isAllowed: (node: WorkflowNode) => boolean,
   ) {
-    const node = toValue(graph)?.nodes.find((candidate) => candidate.id === nodeId)
+    const node = toValue(index)?.nodesById.get(nodeId)
 
     if (!node || !isAllowed(node)) {
       return

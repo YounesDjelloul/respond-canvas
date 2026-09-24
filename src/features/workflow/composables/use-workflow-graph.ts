@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { workflowRepository } from '../data/workflow-repository'
 import type { WorkflowRepository } from '../data/types'
-import { createWorkflowGraph } from '../domain'
+import { createWorkflowGraph, indexWorkflowGraph } from '../domain'
 import type { WorkflowGraph } from '../domain'
 
 const workflowQueryKey = ['workflow'] as const
@@ -14,11 +14,13 @@ export function useWorkflowGraph(
   const workflowQuery = useQuery({
     queryKey: workflowQueryKey,
     queryFn: async () => createWorkflowGraph(await repository.getWorkflow()),
+    structuralSharing: false,
   })
   const graph = computed(() => {
     const result = workflowQuery.data.value
     return result?.ok ? result.value : null
   })
+  const index = computed(() => (graph.value ? indexWorkflowGraph(graph.value) : null))
   const errorMessage = computed(() => {
     if (workflowQuery.error.value instanceof Error) {
       return workflowQuery.error.value.message
@@ -47,6 +49,7 @@ export function useWorkflowGraph(
 
   return {
     graph,
+    index,
     status: {
       errorMessage,
       isEmpty,

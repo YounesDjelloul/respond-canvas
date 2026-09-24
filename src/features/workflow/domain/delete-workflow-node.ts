@@ -1,4 +1,5 @@
 import type { DomainResult } from '@/features/shared/domain'
+import { collectWorkflowSubtreeIds, indexWorkflowGraph } from './index-workflow-graph'
 import type {
   WorkflowGraph,
   WorkflowMutationError,
@@ -22,7 +23,7 @@ export function deleteWorkflowNode(
     return failure('node-read-only', 'This node is read-only', ['nodes', nodeId])
   }
 
-  const deletedIds = collectDescendantIds(graph, nodeId)
+  const deletedIds = collectWorkflowSubtreeIds(indexWorkflowGraph(graph), nodeId)
 
   return {
     ok: true,
@@ -43,33 +44,11 @@ export function countWorkflowNodeDescendants(
     return 0
   }
 
-  return collectDescendantIds(graph, nodeId).size - 1
+  return collectWorkflowSubtreeIds(indexWorkflowGraph(graph), nodeId).size - 1
 }
 
 export function canQuickDeleteWorkflowNode(node: WorkflowNode): boolean {
   return node.editable && node.kind !== 'trigger'
-}
-
-function collectDescendantIds(graph: WorkflowGraph, nodeId: string): Set<string> {
-  const collectedIds = new Set([nodeId])
-  let foundDescendant = true
-
-  while (foundDescendant) {
-    foundDescendant = false
-
-    for (const node of graph.nodes) {
-      if (
-        node.parentId !== null &&
-        collectedIds.has(node.parentId) &&
-        !collectedIds.has(node.id)
-      ) {
-        collectedIds.add(node.id)
-        foundDescendant = true
-      }
-    }
-  }
-
-  return collectedIds
 }
 
 function failure(
