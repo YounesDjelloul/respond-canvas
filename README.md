@@ -4,6 +4,10 @@ A flow chart editor for customer conversation workflows, built for the Respond.i
 
 **Live:** https://respond-canvas.vercel.app
 
+**Demo:**
+https://github.com/user-attachments/assets/d3a627ba-b88d-43d3-89b4-99cb4f0d4b6a
+
+
 ## Run it
 
 Requires Node 24 (see `.nvmrc`).
